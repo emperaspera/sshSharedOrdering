@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RxHamburgerMenu } from 'react-icons/rx';
+import { CgProfile } from 'react-icons/cg';
 
 const HamMenu = ({ isOpen, toggleMenu }) => {
     const [isHovered, setIsHovered] = useState(false);
@@ -25,9 +25,9 @@ const HamMenu = ({ isOpen, toggleMenu }) => {
     };
 
     return (
-        <div className="relative lg:hidden" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <div className="relative" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
             <button onClick={handleClick}>
-                <RxHamburgerMenu size="30" color={getIconColor()} />
+                <CgProfile size="30" color={getIconColor()} />
             </button>
             {(isOpen || isHovered) && (
                 <div className="absolute top-5 right-0 bg-gray-100 shadow-lg w-60 max-w-screen" onClick={(e) => e.stopPropagation()}>
