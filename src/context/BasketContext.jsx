@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from "react";
+import React, { createContext, useContext, useState, useEffect } from "react";
 
 // Create the BasketContext
 const BasketContext = createContext();
@@ -8,8 +8,45 @@ export const useBasket = () => useContext(BasketContext);
 
 // BasketProvider to wrap the app and provide basket state
 export const BasketProvider = ({ children }) => {
-    const [basket, setBasket] = useState([]);
-    const [lastVisitedSupermarket, setLastVisitedSupermarket] = useState(null); // Track last visited supermarket
+    const [basket, setBasket] = useState(() => {
+        // Load basket from localStorage on initial render
+        try {
+            const savedBasket = localStorage.getItem("basket");
+            return savedBasket ? JSON.parse(savedBasket) : [];
+        } catch (error) {
+            console.error("Error loading basket from localStorage:", error);
+            return [];
+        }
+    });
+
+    const [lastVisitedSupermarket, setLastVisitedSupermarket] = useState(() => {
+        try {
+            const savedSupermarket = localStorage.getItem("lastVisitedSupermarket");
+            return savedSupermarket ? JSON.parse(savedSupermarket) : null;
+        } catch (error) {
+            console.error("Error loading lastVisitedSupermarket from localStorage:", error);
+            return null;
+        }
+    });
+
+    // Save basket to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            console.log("Saving basket to localStorage:", basket);
+            localStorage.setItem("basket", JSON.stringify(basket));
+        } catch (error) {
+            console.error("Error saving basket to localStorage:", error);
+        }
+    }, [basket]);
+
+    // Save lastVisitedSupermarket to localStorage whenever it changes
+    useEffect(() => {
+        try {
+            localStorage.setItem("lastVisitedSupermarket", JSON.stringify(lastVisitedSupermarket));
+        } catch (error) {
+            console.error("Error saving lastVisitedSupermarket to localStorage:", error);
+        }
+    }, [lastVisitedSupermarket]);
 
     const addToBasket = (item, storeId) => {
         setBasket((prev) => {
@@ -46,6 +83,29 @@ export const BasketProvider = ({ children }) => {
         setBasket([]);
     };
 
+    const placeOrder = async (orderDetails) => {
+        try {
+            const response = await fetch("http://localhost:5000/api/place-order", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(orderDetails),
+            });
+
+            if (!response.ok) {
+                console.error("Failed to place order:", response.status, response.statusText);
+                return false;
+            }
+
+            console.log("Order placed successfully:", await response.json());
+            return true;
+        } catch (error) {
+            console.error("Error placing order:", error);
+            return false;
+        }
+    };
+
     return (
         <BasketContext.Provider
             value={{
@@ -56,6 +116,7 @@ export const BasketProvider = ({ children }) => {
                 clearBasket,
                 lastVisitedSupermarket,
                 setLastVisitedSupermarket,
+                placeOrder,
             }}
         >
             {children}

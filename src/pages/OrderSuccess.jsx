@@ -11,7 +11,7 @@ const OrderSuccess = () => {
                 Your order has been placed successfully. Thank you for shopping with us!
             </p>
             <button
-                onClick={() => navigate("/")}
+                onClick={() => navigate("/main")}
                 className="bg-blue-500 text-white px-4 py-2 rounded-lg"
             >
                 Back to Supermarkets
