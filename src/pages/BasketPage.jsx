@@ -9,10 +9,12 @@ const BasketPage = () => {
         updateQuantity,
         removeFromBasket,
         clearBasket,
-        lastVisitedSupermarket, // Access the last visited supermarket
+        lastVisitedSupermarket,
+        placeOrder, // New function from BasketContext
     } = useBasket();
     const navigate = useNavigate();
     const [deliveryDate, setDeliveryDate] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const BASE_DELIVERY_FEE = 5.0;
     const SERVICE_FEE = 2.5;
@@ -31,13 +33,72 @@ const BasketPage = () => {
 
     const calculateTotal = () => calculateSubtotal() + deliveryFee + SERVICE_FEE;
 
-    const handleCheckout = () => {
-        if (!deliveryDate) {
-            alert("Please select a delivery date.");
+    const handleCheckout = async () => {
+        if (!deliveryDate || new Date(deliveryDate).getTime() < Date.now()) {
+            alert("Please select a valid delivery date.");
             return;
         }
-        clearBasket();
-        navigate("/main/order-success");
+
+        setIsSubmitting(true); // Start submitting state
+
+        // Retrieve user data from localStorage
+        const user = JSON.parse(localStorage.getItem("user"));
+
+        if (!user || !user.user_id) {
+            alert("User information is missing. Please log in again.");
+            setIsSubmitting(false);
+            return;
+        }
+
+        try {
+            // Fetch the user details from the database to get householdId
+            const response = await fetch("http://localhost:5000/api/get-user-details", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ userId: user.user_id }),
+            });
+
+            if (!response.ok) {
+                throw new Error("Failed to fetch user details");
+            }
+
+            const userDetails = await response.json();
+            const householdId = userDetails.household ? userDetails.household.household_id : null;
+
+            if (!householdId) {
+                alert("Household information is missing. Please try again or contact support.");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Prepare order data for saving in the database
+            const orderDetails = {
+                items: basket,
+                total: calculateTotal(),
+                deliveryDate,
+                deliveryFee,
+                serviceFee: SERVICE_FEE,
+                householdId,
+                userId: userDetails.user_id, // Use the retrieved user ID
+            };
+
+            // Place the order
+            const success = await placeOrder(orderDetails);
+            if (success) {
+                alert("Order placed successfully!");
+                clearBasket();
+                navigate("/main/order-success");
+            } else {
+                alert("Failed to place order. Please try again.");
+            }
+        } catch (error) {
+            console.error("Error during checkout:", error);
+            alert("There was an error processing your order. Please try again.");
+        }
+
+        setIsSubmitting(false); // End submitting state
     };
 
     if (!basket.length) {
@@ -45,16 +106,11 @@ const BasketPage = () => {
             <div className="min-h-screen bg-gray-100 p-6 flex flex-col items-center">
                 <h1 className="text-3xl font-bold">Your Basket is Empty</h1>
                 <button
-                    onClick={() => {
-                        console.log("Navigating to /main");
-                        navigate("/main");
-                    }}
+                    onClick={() => navigate("/main")}
                     className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg"
                 >
                     Back to Supermarket
                 </button>
-
-
             </div>
         );
     }
@@ -144,13 +200,16 @@ const BasketPage = () => {
                     }
                     className="bg-blue-500 text-white px-4 py-2 rounded-lg"
                 >
-                    Continue shopping
+                    Continue Shopping
                 </button>
                 <button
                     onClick={handleCheckout}
-                    className="bg-green-500 text-white px-4 py-2 rounded-lg"
+                    className={`bg-green-500 text-white px-4 py-2 rounded-lg ${
+                        isSubmitting ? "opacity-50" : ""
+                    }`}
+                    disabled={isSubmitting}
                 >
-                    Pay
+                    {isSubmitting ? "Processing..." : "Pay"}
                 </button>
             </div>
         </div>

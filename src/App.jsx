@@ -6,6 +6,12 @@ import MainScreen from "./pages/MainScreen";
 import InventoryScreen from "./pages/InventoryScreen";
 import BasketPage from "./pages/BasketPage";
 import OrderSuccess from "./pages/OrderSuccess";
+import LoginPage from "./pages/LoginPage";
+import SignupPage from "./pages/SignupPage";
+import TableDeskLoginPage from "./pages/TableDeskLoginPage";
+import AccountPage from "./pages/AccountPage";
+import ProfileSelectionPage from "./pages/ProfileSelectionPage";
+import OrdersPage from "./pages/OrdersPage.jsx";
 
 const App = () => {
     return (
@@ -15,8 +21,16 @@ const App = () => {
                     {/* Landing Page Route */}
                     <Route path="/" element={<LandingPage />} />
 
+                    {/* Authentication Routes */}
+                    <Route path="/login" element={<LoginPage />} />
+                    <Route path="/signup" element={<SignupPage />} />
+                    <Route path="/table-desk-login" element={<TableDeskLoginPage />} />
+                    <Route path="/household/select-profile" element={<ProfileSelectionPage />} />
+                    <Route path="/household/orders" element={<OrdersPage />} />
+
                     {/* Groceries App Routes */}
                     <Route path="/main" element={<MainScreen />} />
+                    <Route path="/main/account" element={<AccountPage />} />
                     <Route path="/main/inventory/:id" element={<InventoryScreen />} />
                     <Route path="/main/basket" element={<BasketPage />} />
                     <Route path="/main/order-success" element={<OrderSuccess />} />

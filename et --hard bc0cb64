@@ -1,0 +1,12 @@
+[33m2e57dce[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mEmil[m[33m)[m HEAD@{0}: reset: moving to HEAD~1
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{1}: reset: moving to HEAD~1
+[33mbc0cb64[m HEAD@{2}: commit: Your commit message describing the changes
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{3}: checkout: moving from emil to Emil
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{4}: checkout: moving from login to emil
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{5}: checkout: moving from Emil to login
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{6}: checkout: moving from main to Emil
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{7}: checkout: moving from main to main
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{8}: checkout: moving from main to main
+[33m70221b8[m[33m ([m[1;32mmain[m[33m)[m HEAD@{9}: commit (merge): Remove README.md temporarily
+[33m2e57dce[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mEmil[m[33m)[m HEAD@{10}: Branch: renamed refs/heads/master to refs/heads/main
+[33m2e57dce[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mEmil[m[33m)[m HEAD@{12}: commit (initial): First commit. First version of our prototype
