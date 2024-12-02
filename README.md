@@ -1,9 +1,11 @@
 
 # sshSharedOrdering
 
-Groceries Ordering Application for the existing SSH Company with delivery fee split feature.
+Groceries Ordering Application for the existing SSH Company with a delivery fee split feature.
 
-## Features
+---
+
+## **Features**
 - Browse supermarkets and their categories.
 - Add items to the basket and view the total cost.
 - Select a delivery date for your order.
@@ -19,6 +21,7 @@ Follow these steps to set up and launch the project locally.
 Make sure you have the following installed on your machine:
 - **Node.js** (v16.x or higher) – [Download here](https://nodejs.org/)
 - **npm** or **yarn** (npm comes with Node.js)
+- **PostgreSQL** – [Download here](https://www.postgresql.org/download/)
 - A **Git** client – [Download here](https://git-scm.com/)
 
 ---
@@ -46,37 +49,66 @@ yarn install
 
 ---
 
-### **3. Start the Development Server**
-Run the following command to start the application:
+### **3. Configure Database**
+
+#### **Step 1: Modify `initDatabase.js`**
+- Open the `initDatabase.js` file.
+- Update the `DB_CONFIG` object with your PostgreSQL credentials:
+  ```javascript
+  const DB_CONFIG = {
+      user: "your_username",        // Your PostgreSQL username
+      host: "localhost",            // Hostname
+      password: "your_password",    // Your PostgreSQL password
+      port: 5432,                   // Default port
+      defaultDatabase: "postgres",  // Default "postgres" database
+      targetDatabase: "ssh",        // Target database to create
+  };
+  ```
+
+#### **Step 2: Run `initDatabase.js` to Create the Database and Schema**
+Run the following command to execute the database initialization script:
+```bash
+node initDatabase.js
+```
+
+This script will:
+1. Create the `ssh` database if it doesn't exist.
+2. Initialize the required tables and schema.
+3. Populate the database with test household data.
+
+---
+
+### **4. Start the Server**
+Once the database is set up, start the backend server by running:
+```bash
+node server.js
+```
+
+This will start the server, and it will be accessible at:
+```
+http://localhost:5000/
+```
+
+---
+
+### **5. Start the Frontend Development Server**
+Run the following command to start the React application:
 ```bash
 npm run dev
 # OR
 yarn dev
 ```
 
-This will start the development server. Open your browser and navigate to the link provided in the terminal. 
-E.g.:
+This will start the development server. Open your browser and navigate to the link provided in the terminal, typically:
+```
 http://localhost:5173/
-
----
-
-### **4. Build the Application for Production**
-To build the application for production, run:
-```bash
-npm run build
-# OR
-yarn build
 ```
 
-The build files will be generated in the `dist/` folder.
-
 ---
 
-## **Submitting Your Work**
+## **Workflow for Contributing**
 
-### Step-by-Step Guide for Submitting Your Work to GitHub
-
-To contribute to this project, please follow these steps:
+### **Step-by-Step Guide for Submitting Your Work to GitHub**
 
 ### **1. Create a Branch**
 Always create a new branch for your work. **Do not work directly on the `main` branch.**
@@ -119,17 +151,12 @@ Once your changes are approved, the repository owner will merge your pull reques
 
 ---
 
-## **Collaborator Workflow**
-
-### **1. Branching**
-- Always use feature branches for changes (e.g., `feature/add-login`).
-
-### **2. Pull Requests**
-- All changes must go through a pull request and be reviewed before merging into `main`.
-
-### **3. Branch Protection**
-- Direct pushes to `main` are not allowed.
-- Submit changes via pull requests and await approval.
+## **Tech Stack**
+- **React**: For building the user interface.
+- **Vite**: Development tooling.
+- **Tailwind CSS**: For styling.
+- **Node.js**: Backend runtime environment.
+- **PostgreSQL**: Database management.
 
 ---
 
@@ -149,15 +176,6 @@ sshSharedOrdering/
 ├── README.md             # Project documentation
 └── vite.config.js        # Vite configuration
 ```
-
----
-
-## **Tech Stack**
-- **React**: For building the user interface.
-- **Vite**: Development tooling.
-- **Tailwind CSS**: For styling.
-- **Node.js**: Runtime environment.
-- **npm/yarn**: Dependency management.
 
 ---
 
