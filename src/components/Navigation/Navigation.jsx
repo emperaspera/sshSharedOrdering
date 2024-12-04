@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import { Link } from "react-router-dom"; // Import Link from React Router
+import {Link} from "react-router-dom"; // Import Link from React Router
 import Logo from "./Logo.jsx";
 import Users from "./Users.jsx";
 import HamMenu from "./HamMenu.jsx";
@@ -31,22 +31,28 @@ const Navigation = () => {
                 className="fixed top-0 left-0 right-0 flex items-center justify-between gap-3 md:gap-10
                 px-5 md:px-20 h-20 bg-gray-100 text-slate-300 z-40 shadow-lg shadow-blue-500/30"
             >
-                <Logo />
-                <Users />
-                <HamMenu isOpen={isMenuOpen} toggleMenu={() => setIsMenuOpen(!isMenuOpen)} />
+                <Logo/>
+                <Users/>
+                <HamMenu isOpen={isMenuOpen} toggleMenu={() => setIsMenuOpen(!isMenuOpen)}/>
+                <div className="hidden lg:flex items-center space-x-4">
+                    {mode && (
+                        <Link to="/main/account" className="hover:underline text-blue-500">
+                            View Profile
+                        </Link>
+                    )}
+                    {/* Add link to orders page if in "household" or "user" mode */}
+                    {mode && (
+                        <Link to="/household/orders" className="hover:underline text-blue-500">
+                            View Orders
+                        </Link>
+                    )}
 
-                {/* Add link to orders page if in "household" or "user" mode */}
-                {mode && (
-                    <Link to="/household/orders" className="hover:underline text-blue-500">
-                        View Orders
-                    </Link>
-                )}
+                    {/* Show UserSwitcher only if in "household" mode */}
+                    {mode === "household" && householdId && <UserSwitcher householdId={householdId}/>}
 
-                {/* Show UserSwitcher only if in "household" mode */}
-                {mode === "household" && householdId && <UserSwitcher householdId={householdId} />}
-
-                {/* Show LogoutButton if in either "user" or "household" mode */}
-                {mode && <LogoutButton />}
+                    {/* Show LogoutButton if in either "user" or "household" mode */}
+                    {mode && <LogoutButton/>}
+                </div>
             </div>
 
             {/* Add space below the navigation for logged-in users */}
