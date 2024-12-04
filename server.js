@@ -3,8 +3,10 @@ import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
 import cors from "cors";
 import pg from "pg";
+import dotenv from "dotenv";
 import supermarkets from "./src/supermarketData.js"; // OUR VIRTUAL API WHICH POPULATED DATABASE
 
+dotenv.config();
 const { Pool } = pg;
 const app = express();
 const port = 5000;
@@ -15,11 +17,11 @@ app.use(cors());
 
 // PostgreSQL Pool Configuration
 const pool = new Pool({
-    user: "postgres", // PostgreSQL username
-    host: "localhost", // Hostname
-    database: "ssh",  // Database name
-    password: "your password", // PostgreSQL password
-    port: 5432,       // Default port
+    user: "postgres",
+    host: "localhost",
+    database: "ssh",
+    password:"your password",
+    port: 5432
 });
 
 async function populateDatabase() {
@@ -157,6 +159,10 @@ app.post("/api/register", async (req, res) => {
         return res.status(400).json({ error: "All fields are required" });
     }
 
+    if (!/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: "PIN must be exactly 4 digits." });
+    }
+
     try {
         // Check if the email is already registered
         const emailCheck = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
@@ -195,6 +201,10 @@ app.post("/api/table-login", async (req, res) => {
         return res.status(400).json({ error: "Household ID and PIN are required" });
     }
 
+    if (!/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: "PIN must be exactly 4 digits." });
+    }
+
     try {
         // Fetch the household and its hashed PIN
         const result = await pool.query(
@@ -223,6 +233,47 @@ app.post("/api/table-login", async (req, res) => {
     } catch (err) {
         console.error("Error during table login:", err);
         res.status(500).json({ error: "Server error" });
+    }
+});
+
+app.post("/api/update", async (req, res) => {
+    const { userId, field, value } = req.body;
+
+    // Validate request payload
+    if (!userId || !field || !value) {
+        return res.status(400).json({ error: "Invalid request data." });
+    }
+
+    try {
+        let query, params;
+
+        if (field === "pin") {
+            // Enforce 4-digit PIN validation
+            if (!/^\d{4}$/.test(value)) {
+                return res.status(400).json({ error: "PIN must be exactly 4 digits." });
+            }
+
+            const hashedPin = await bcrypt.hash(value, 10); // Hash the new PIN
+            query = "UPDATE users SET pin_password = $1 WHERE user_id = $2";
+            params = [hashedPin, userId];
+        } else if (field === "email") {
+            query = "UPDATE users SET email = $1 WHERE user_id = $2";
+            params = [value, userId];
+        } else if (field === "password") {
+            const hashedPassword = await bcrypt.hash(value, 10); // Hash the new password
+            query = "UPDATE users SET password_hash = $1 WHERE user_id = $2";
+            params = [hashedPassword, userId];
+        } else {
+            return res.status(400).json({ error: "Invalid field to update." });
+        }
+
+        // Execute the query
+        await pool.query(query, params);
+
+        res.json({ message: `${field} updated successfully.` });
+    } catch (error) {
+        console.error("Error updating user:", error);
+        res.status(500).json({ error: "Internal server error." });
     }
 });
 
@@ -323,6 +374,10 @@ app.post("/api/user-orders", async (req, res) => {
 
 app.post("/api/verify-user-pin", async (req, res) => {
     const { userId, pin } = req.body;
+
+    if (!/^\d{4}$/.test(pin)) {
+        return res.status(400).json({ error: "Invalid PIN. Must be exactly 4 digits." });
+    }
 
     try {
         // Fetch the user by ID

@@ -52,27 +52,45 @@ const HamMenu = ({isOpen, toggleMenu}) => {
                 >
                     <ul className="p-4 text-left">
                         {isAuthorised ? (
-                            <li
-                                className="py-2 text-gray-800 hover:text-blue-500"
-                                onClick={() => navigate('/signup')}
-                            >
-                                Sign In
-                            </li>
-                        ) : (
                             <>
                                 <li
                                     className="py-2 text-gray-800 hover:text-blue-500"
-                                    onClick={handleLogout}
-                                >
-                                    Log Out
-                                </li>
-                                <li
-                                    className="py-2 text-gray-800 hover:text-blue-500"
-                                    onClick={() => navigate('/main/account')}
+                                    onClick={() => {
+                                        toggleMenu();
+                                        navigate("/main/account");
+                                    }}
                                 >
                                     Account Information
                                 </li>
+                                <li
+                                    className="py-2 text-gray-800 hover:text-blue-500"
+                                    onClick={() => {
+                                        toggleMenu();
+                                        navigate("/household/orders");
+                                    }}
+                                >
+                                    Orders
+                                </li>
+                                <li
+                                    className="py-2 text-gray-800 hover:text-blue-500"
+                                    onClick={() => {
+                                        handleLogout();
+                                        toggleMenu();
+                                    }}
+                                >
+                                    Log Out
+                                </li>
                             </>
+                        ) : (
+                            <li
+                                className="py-2 text-gray-800 hover:text-blue-500"
+                                onClick={() => {
+                                    toggleMenu();
+                                    navigate("/signup");
+                                }}
+                            >
+                                Sign In
+                            </li>
                         )}
                     </ul>
                 </div>

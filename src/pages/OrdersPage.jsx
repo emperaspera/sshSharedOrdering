@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from "react";
-import {useNavigate} from "react-router-dom";
+import {useLocation, useNavigate} from "react-router-dom";
 
 const OrdersPage = () => {
     const [orders, setOrders] = useState([]);
@@ -14,24 +14,20 @@ const OrdersPage = () => {
             setError("");
 
             try {
-                // Fetch mode, user, and household details from localStorage
                 const mode = localStorage.getItem("mode"); // Retrieve mode as a string
                 const user = JSON.parse(localStorage.getItem("user"));
                 const household = JSON.parse(localStorage.getItem("household"));
 
-                console.log("Mode:", mode, "User:", user, "Household:", household);
 
                 const householdId = household?.householdId || null;
                 const userId = user?.user_id || null;
 
-                // Validate user or household ID presence
                 if (!householdId && !userId) {
                     alert("User information is missing. Please log in again.");
                     navigate("/login");
                     return;
                 }
 
-                // Determine the API endpoint and request body based on mode
                 const requestBody = mode === "household" ? { householdId } : { userId };
                 const endpoint =
                     mode === "household"
@@ -74,16 +70,24 @@ const OrdersPage = () => {
         );
     };
 
+    const navigationSource = localStorage.getItem("navigationSource");
+    const goBackText = navigationSource === "account" ? "Go Back to Account" : "Go Back to Supermarkets";
+    const goBackPath = navigationSource === "account" ? "/main/account" : "/main";
+
+    const handleGoBack = () => {
+        localStorage.removeItem("navigationSource");
+        navigate(goBackPath);
+    }
     // Retrieve mode for conditional rendering
     const mode = localStorage.getItem("mode"); // Retrieve mode as a string
 
     return (
         <div className="container mx-auto p-6">
             <button
-                onClick={() => navigate("/main")}
+                onClick={() => handleGoBack()}
                 className="mb-6 text-blue-500 hover:underline"
             >
-                &larr; Go Back to Supermarkets
+                &larr; {goBackText}
             </button>
 
             <h1 className="text-3xl font-bold mb-6">Orders</h1>

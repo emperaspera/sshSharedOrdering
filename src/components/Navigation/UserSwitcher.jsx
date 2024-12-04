@@ -124,12 +124,20 @@ const UserSwitcher = ({ householdId }) => {
                         </h3>
                         {error && <p className="text-red-500 mb-2">{error}</p>}
                         <input
-                            type="password"
+                            type="text"
                             value={pin}
-                            onChange={(e) => setPin(e.target.value)}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                if (/^\d{0,4}$/.test(value)) {
+                                    setPin(value);
+                                }
+                            }}
                             className="border w-full px-4 py-2 rounded-lg mb-4"
                             placeholder="Enter PIN"
+                            maxLength={4}
+                            required
                         />
+
                         <div className="flex justify-end gap-2">
                             <button
                                 onClick={() => setSelectedUser(null)}

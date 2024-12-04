@@ -102,10 +102,18 @@ const ProfileSelectionPage = () => {
                             Enter PIN for {selectedUser.first_name}
                         </h3>
                         <input
-                            type="password"
-                            className="w-full px-4 py-2 border rounded-lg mb-4"
+                            type="text"
                             value={pin}
-                            onChange={(e) => setPin(e.target.value)}
+                            onChange={(e) => {
+                                const value = e.target.value;
+                                if (/^\d{0,4}$/.test(value)) {
+                                    setPin(value);
+                                }
+                            }}
+                            className="border w-full px-4 py-2 rounded-lg mb-4"
+                            placeholder="Enter PIN"
+                            maxLength={4}
+                            required
                         />
                         <button
                             onClick={handlePinVerification}
