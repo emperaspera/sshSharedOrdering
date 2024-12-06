@@ -106,7 +106,9 @@ const InventoryScreen = () => {
                                                 src={item.image}
                                                 alt={item.name}
                                                 className="w-24 h-24 object-cover mb-4"
+                                                loading="lazy"
                                             />
+
                                             <h3 className="text-lg font-bold text-gray-800">{item.name}</h3>
                                             <p className="text-gray-600 text-center">{item.description}</p>
                                             <p className="text-lg font-bold text-gray-800 mt-2">${item.price}</p>
