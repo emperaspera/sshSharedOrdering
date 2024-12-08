@@ -59,7 +59,9 @@ async function initializeSchema() {
             `CREATE TABLE IF NOT EXISTS households (
                 household_id SERIAL PRIMARY KEY,
                 address TEXT NOT NULL,
-                pin_password TEXT NOT NULL
+                pin_password TEXT NOT NULL,
+                coordinate_x INT NOT NULL,
+                coordinate_y INT NOT NULL
             )`,
             `CREATE TABLE IF NOT EXISTS users (
                 user_id SERIAL PRIMARY KEY,
@@ -72,14 +74,18 @@ async function initializeSchema() {
                 phone_number VARCHAR(15),
                 address TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_blocked BOOLEAN DEFAULT FALSE
+                is_blocked BOOLEAN DEFAULT FALSE,
+                balance NUMERIC(10, 2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS supermarkets (
                 supermarket_id SERIAL PRIMARY KEY,
                 name VARCHAR(100) NOT NULL,
                 description TEXT,
                 rating NUMERIC(3, 2),
-                image_url TEXT
+                image_url TEXT,
+                address TEXT,
+                coordinate_x INT NOT NULL,
+                coordinate_y INT NOT NULL
             )`,
             `CREATE TABLE IF NOT EXISTS categories (
                 category_id SERIAL PRIMARY KEY,
@@ -118,7 +124,8 @@ async function initializeSchema() {
                 subtotal NUMERIC(10, 2) NOT NULL,
                 delivery_fee_share NUMERIC(10, 2),
                 service_fee_share NUMERIC(10, 2),
-                user_total NUMERIC(10, 2)
+                user_total NUMERIC(10, 2),
+                tax_share NUMERIC(10, 2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS payments (
                 payment_id SERIAL PRIMARY KEY,
@@ -148,9 +155,9 @@ async function populateHouseholds(client) {
         console.log("Populating test data for households...");
 
         const testHouseholds = [
-            { address: "123 Main St", pin: "1111" },
-            { address: "456 Elm St", pin: "2222" },
-            { address: "789 Oak St", pin: "3333" },
+            { address: "123 Pavel St", pin: "1111", coordinate_x: 3, coordinate_y: 8 },
+            { address: "456 Emil St", pin: "2222", coordinate_x: 7, coordinate_y: 12 },
+            { address: "789 Mert St", pin: "3333", coordinate_x: 10, coordinate_y: 6 },
         ];
 
         for (const household of testHouseholds) {
@@ -158,8 +165,9 @@ async function populateHouseholds(client) {
             const hashedPin = await bcrypt.hash(household.pin, 10);
 
             await client.query(
-                `INSERT INTO households (address, pin_password) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
-                [household.address, hashedPin]
+                `INSERT INTO households (address, pin_password, coordinate_x, coordinate_y)
+                VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING`,
+                [household.address, hashedPin, household.coordinate_x, household.coordinate_y]
             );
         }
 
