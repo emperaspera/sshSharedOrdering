@@ -46,12 +46,14 @@ const SignupPage = () => {
     };
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-gray-100">
-            <h1 className="text-2xl font-bold mb-4">Signup</h1>
+        <div
+            className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-r from-green-600 to-purple-500">
+
             <form
                 onSubmit={handleSignup}
                 className="bg-white p-6 rounded-lg shadow-md w-96"
             >
+                <h1 className="text-2xl font-bold mb-4 text-black">Signup</h1>
                 <div className="mb-4">
                     <label className="block text-gray-700 mb-2">First Name</label>
                     <input

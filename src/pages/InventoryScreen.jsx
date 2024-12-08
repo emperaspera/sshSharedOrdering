@@ -51,9 +51,11 @@ const InventoryScreen = () => {
                 <h1 className="text-3xl font-bold text-red-600">Supermarket Not Found</h1>
                 <button
                     onClick={() => navigate("/")}
-                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg transition relative overflow-hidden group"
                 >
-                    Back to Home
+                    <span
+                        className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-500 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
+                    <span className="relative z-10">Back to Home</span>
                 </button>
             </div>
         );
@@ -68,13 +70,7 @@ const InventoryScreen = () => {
     return (
         <>
             <Navigation/>
-            <div className="min-h-screen bg-gray-100 p-6">
-                {/* Top-right corner: Profile picture for household login */}
-                {isHouseholdLogin && householdData && (
-                    <div className="absolute top-4 right-4">
-                        Household
-                    </div>
-                )}
+            <div className="min-h-screen bg-gray-100 p-6 relative">
 
                 <div className="flex flex-col items-center mb-6">
                     <img
@@ -103,7 +99,7 @@ const InventoryScreen = () => {
                                             className="bg-white shadow-md rounded-lg p-4 flex-shrink-0 w-56 flex flex-col items-center"
                                         >
                                             <img
-                                                src={item.image}
+                                                src={item.image} // Ensures images load based on the path
                                                 alt={item.name}
                                                 className="w-24 h-24 object-cover mb-4"
                                             />
@@ -111,10 +107,12 @@ const InventoryScreen = () => {
                                             <p className="text-gray-600 text-center">{item.description}</p>
                                             <p className="text-lg font-bold text-gray-800 mt-2">${item.price}</p>
                                             <button
-                                                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition"
+                                                className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg transition relative overflow-hidden group"
                                                 onClick={() => handleAddToBasket(item)}
                                             >
-                                                Add to Basket
+                                                <span
+                                                    className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-500 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
+                                                <span className="relative z-10">Add to Basket</span>
                                             </button>
                                         </div>
                                     ))}
@@ -136,14 +134,13 @@ const InventoryScreen = () => {
                     ))}
                 </div>
 
-                <div>
-                    <button
-                        onClick={() => navigate("/main")}
-                        className="fixed bottom-4 left-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg hover:bg-blue-600 transition"
-                    >
-                        Go Back
-                    </button>
-                </div>
+                <button
+                    onClick={() => navigate("/main")}
+                    className="sticky bottom-4 left-0 ml-4 bg-blue-500 text-white px-6 py-3 w-48 rounded-lg shadow-lg transition relative overflow-hidden group"
+                >
+                    <span className="absolute inset-0 bg-gradient-to-l from-red-500 to-transparent transform scale-x-0 origin-right group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
+                    <span className="relative z-10 text-center">Go Back</span>
+                </button>
 
                 {basket.length > 0 && (
                     <button
@@ -151,16 +148,18 @@ const InventoryScreen = () => {
                             setLastVisitedSupermarket(supermarket.id);
                             navigate("/main/basket");
                         }}
-                        className="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg hover:bg-green-600 transition"
+                        className="sticky bottom-4 ml-[90%] sm:ml-[15%] md:ml-[70%] bg-green-500 text-white px-6 py-3 w-48 rounded-lg shadow-lg transition relative overflow-hidden group"
                     >
-                        Show Basket ({basket.length})
+                        <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-500 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
+                        <span className="relative z-10 text-center">
+                            Show Basket ({basket.length})
+                        </span>
                     </button>
                 )}
 
                 {notification && (
                     <div className="fixed top-4 left-4 bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
-                        {notification}
-                    </div>
+                        {notification}</div>
                 )}
             </div>
         </>

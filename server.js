@@ -17,12 +17,13 @@ app.use(cors());
 
 // PostgreSQL Pool Configuration
 const pool = new Pool({
-    user: "postgres",
-    host: "localhost",
-    database: "ssh",
-    password:"your password",
-    port: 5432
+    user: process.env.DB_USER, // PostgreSQL username
+    host: process.env.DB_HOST, // Hostname
+    database: process.env.DB_NAME,  // Database name
+    password: process.env.DB_PASSWORD, // PostgreSQL password
+    port: process.env.DB_PORT,       // Default port
 });
+
 
 async function populateDatabase() {
     const client = await pool.connect();
@@ -30,7 +31,6 @@ async function populateDatabase() {
         console.log("Populating database with supermarket data...");
         await client.query("BEGIN");
 
-        // Insert Supermarkets
         for (const supermarket of supermarkets) {
             const insertSupermarketQuery = `
                 INSERT INTO supermarkets (supermarket_id, name, image_url, rating, description)
@@ -45,7 +45,6 @@ async function populateDatabase() {
                 supermarket.description,
             ]);
 
-            // Insert Categories
             for (const category of supermarket.categories) {
                 const insertCategoryQuery = `
                     INSERT INTO categories (supermarket_id, name)
@@ -57,7 +56,6 @@ async function populateDatabase() {
                     category.name,
                 ]);
 
-                // Get the category_id just inserted or existing to link products
                 const selectCategoryQuery = `
                     SELECT category_id 
                     FROM categories
@@ -69,7 +67,6 @@ async function populateDatabase() {
                 ]);
                 const categoryId = categoryResult.rows[0].category_id;
 
-                // Insert Items
                 for (const item of category.items) {
                     const insertItemQuery = `
                         INSERT INTO products (product_id, name, description, price, image_url, category, updated_at)
@@ -82,7 +79,7 @@ async function populateDatabase() {
                         item.description,
                         item.price,
                         item.image,
-                        categoryId, // Updated to use category_id instead of just category name
+                        categoryId,
                     ]);
                 }
             }
@@ -97,6 +94,38 @@ async function populateDatabase() {
         client.release();
     }
 }
+
+let lastPopulationTime = null;
+//let isPopulating = false; // Flag to track population in progress
+
+// Middleware to check if the database needs to be repopulated
+async function checkAndPopulateDatabase(req, res, next) {
+    const now = new Date();
+    const oneMinute = 24 * 60 * 60 * 1000; // 1 minute in milliseconds
+
+    if (!lastPopulationTime || now - lastPopulationTime > oneMinute) {
+        // Update lastPopulationTime immediately to prevent multiple requests from triggering
+        lastPopulationTime = now;
+        console.log(`[${now.toISOString()}] Starting database population...`);
+
+        try {
+            await populateDatabase(); // Populate database
+            console.log(`[${new Date().toISOString()}] Database population completed.`);
+        } catch (error) {
+            console.error(`[${new Date().toISOString()}] Error during database population:`, error);
+        } finally {
+            // Add a short grace period to avoid frequent repopulations
+            setTimeout(() => {
+                console.log(`[${new Date().toISOString()}] Grace period ended.`);
+            }, 5000); // Grace period of 5 seconds
+        }
+    }
+
+    if (next) next(); // Proceed to the next middleware or route handler
+}
+
+// Apply middleware globally
+app.use(checkAndPopulateDatabase);
 
 // 1. Login Endpoint
 app.post("/api/login", async (req, res) => {
@@ -239,23 +268,19 @@ app.post("/api/table-login", async (req, res) => {
 app.post("/api/update", async (req, res) => {
     const { userId, field, value } = req.body;
 
-    // Validate request payload
-    if (!userId || !field || !value) {
+    if (!userId || !field || value === undefined) {
         return res.status(400).json({ error: "Invalid request data." });
     }
 
     try {
         let query, params;
 
-        if (field === "pin") {
-            // Enforce 4-digit PIN validation
-            if (!/^\d{4}$/.test(value)) {
-                return res.status(400).json({ error: "PIN must be exactly 4 digits." });
-            }
-
-            const hashedPin = await bcrypt.hash(value, 10); // Hash the new PIN
-            query = "UPDATE users SET pin_password = $1 WHERE user_id = $2";
-            params = [hashedPin, userId];
+        if (field === "first_name") {
+            query = "UPDATE users SET first_name = $1 WHERE user_id = $2";
+            params = [value, userId];
+        } else if (field === "last_name") {
+            query = "UPDATE users SET last_name = $1 WHERE user_id = $2";
+            params = [value, userId];
         } else if (field === "email") {
             query = "UPDATE users SET email = $1 WHERE user_id = $2";
             params = [value, userId];
@@ -263,6 +288,10 @@ app.post("/api/update", async (req, res) => {
             const hashedPassword = await bcrypt.hash(value, 10); // Hash the new password
             query = "UPDATE users SET password_hash = $1 WHERE user_id = $2";
             params = [hashedPassword, userId];
+        } else if (field === "pin") {
+            const hashedPin = await bcrypt.hash(value, 10); // Hash the new PIN
+            query = "UPDATE users SET pin_password = $1 WHERE user_id = $2";
+            params = [hashedPin, userId];
         } else {
             return res.status(400).json({ error: "Invalid field to update." });
         }
@@ -276,6 +305,167 @@ app.post("/api/update", async (req, res) => {
         res.status(500).json({ error: "Internal server error." });
     }
 });
+
+// Top-up Balance
+// server.js
+app.post("/api/top-up", async (req, res) => {
+    const { userId, amount, cardNumber } = req.body;
+
+    // Basic Validation
+    if (!userId || amount === undefined || !cardNumber) {
+        return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    if (typeof amount !== "number") {
+        return res.status(400).json({ error: "Amount must be a number." });
+    }
+
+    if (amount <= 0) {
+        return res.status(400).json({ error: "Invalid amount." });
+    }
+
+    if (!/^\d{16}$/.test(cardNumber)) {
+        return res.status(400).json({ error: "Invalid card number." });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        // Insert the payment into the `payments` table
+        const insertPaymentQuery = `
+            INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
+            VALUES ($1, NULL, $2, 'completed', NOW())
+            RETURNING payment_id
+        `;
+        const paymentResult = await client.query(insertPaymentQuery, [userId, amount]);
+
+        if (paymentResult.rows.length === 0) {
+            throw new Error("Failed to record payment.");
+        }
+
+        const paymentId = paymentResult.rows[0].payment_id;
+
+        // Update the user's balance in the `users` table
+        const updateBalanceQuery = `
+            UPDATE users
+            SET balance = balance + $1
+            WHERE user_id = $2
+            RETURNING balance
+        `;
+        const balanceResult = await client.query(updateBalanceQuery, [amount, userId]);
+
+        if (balanceResult.rows.length === 0) {
+            throw new Error("Failed to update user balance.");
+        }
+
+        const updatedBalance = balanceResult.rows[0].balance;
+
+        await client.query("COMMIT");
+
+        res.status(200).json({
+            message: "Top-up successful.",
+            paymentId: paymentId,
+            updatedBalance: updatedBalance,
+        });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error during top-up:", error);
+        res.status(500).json({ error: "Internal server error during top-up." });
+    } finally {
+        client.release();
+    }
+});
+
+
+
+
+// app.post("/api/get-user-balance", async (req, res) => {
+//     const { userId } = req.body;
+//
+//     try {
+//         const result = await pool.query(
+//             `SELECT COALESCE(SUM(amount), 0) AS balance
+//              FROM payments
+//              WHERE user_id = $1 AND status = 'completed'`,
+//             [userId]
+//         );
+//
+//         const balance = result.rows[0].balance;
+//
+//         res.status(200).json({ balance });
+//     } catch (err) {
+//         console.error("Error retrieving balance:", err);
+//         res.status(500).json({ error: "Internal server error during balance retrieval." });
+//     }
+// });
+
+
+app.get('/api/user-balance/:userId', async (req, res) => {
+    const { userId } = req.params;
+
+    console.log(`[USER BALANCE] Received request with userId: ${userId}`);
+
+    try {
+        // Query the user's balance from the database
+        const userQuery = 'SELECT * FROM users WHERE user_id = $1';
+        const result = await pool.query(userQuery, [userId]);
+
+        if (result.rows.length === 0) {
+            console.log(`[USER BALANCE] No user found with userId: ${userId}`);
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const user = result.rows[0];
+        console.log(`[USER BALANCE] Retrieved user data:`, user);
+
+        // Ensure the balance field is parsed as a float
+        const balance = parseFloat(user.balance) || 0;
+        console.log(`[USER BALANCE] Parsed balance: ${balance}`);
+
+        // Send the response
+        res.json({ balance });
+    } catch (error) {
+        console.error(`[USER BALANCE] Error fetching balance for userId ${userId}:`, error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+
+
+// Deduct Payment
+
+
+
+
+app.post("/api/deduct-payment", async (req, res) => {
+    const { userId, orderId, amount } = req.body;
+
+    if (!userId || typeof amount !== "number") {
+        return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    try {
+        const insertPaymentQuery = `
+            INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
+            VALUES ($1, $2, $3, 'completed', NOW())
+            RETURNING payment_id
+        `;
+        const paymentResult = await pool.query(insertPaymentQuery, [userId, orderId || null, amount]);
+
+        if (paymentResult.rows.length === 0) {
+            throw new Error("Failed to record payment.");
+        }
+
+        res.status(200).json({ message: "Payment deducted successfully.", paymentId: paymentResult.rows[0].payment_id });
+    } catch (error) {
+        console.error("Error deducting payment:", error);
+        res.status(500).json({ error: "Internal server error during payment deduction." });
+    }
+});
+
+
 
 
 app.get("/api/household/:householdId/users", async (req, res) => {
@@ -424,112 +614,169 @@ app.get("/api/test", (req, res) => {
 app.post("/api/get-user-details", async (req, res) => {
     const { userId } = req.body;
 
+    console.log(`[GET USER DETAILS] Received request with userId: ${userId}`);
+
     if (!userId) {
+        console.error(`[GET USER DETAILS] Error: Missing userId in request`);
         return res.status(400).json({ error: "User ID is required" });
     }
 
     try {
-        const result = await pool.query("SELECT * FROM users WHERE user_id = $1", [userId]);
+        // Log query to fetch user details
+        console.log(`[GET USER DETAILS] Querying user details for userId: ${userId}`);
+        const userResult = await pool.query("SELECT * FROM users WHERE user_id = $1", [userId]);
 
-        if (result.rows.length === 0) {
+        if (userResult.rows.length === 0) {
+            console.error(`[GET USER DETAILS] Error: User with userId ${userId} not found`);
             return res.status(404).json({ error: "User not found" });
         }
 
-        // Fetch household information if the user has one
-        const user = result.rows[0];
-        let household = null;
+        const user = userResult.rows[0];
+        console.log(`[GET USER DETAILS] Retrieved user: ${JSON.stringify(user)}`);
 
-        if (user.household_id) {
-            const householdResult = await pool.query(
-                "SELECT * FROM households WHERE household_id = $1",
-                [user.household_id]
-            );
-            household = householdResult.rows[0];
-        }
+        // Log query to fetch balance
+        console.log(`[GET USER DETAILS] Querying balance for userId: ${userId}`);
 
-        // Send back the user details including household info if available
-        res.json({ ...user, household });
+        const balance = parseFloat(user.balance) || 0;
+
+        console.log(`[GET USER DETAILS] Retrieved balance: ${balance}`);
+
+        // Log successful response
+        console.log(`[GET USER DETAILS] Sending response for userId: ${userId}`);
+        res.json({
+            user_id: user.user_id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            balance,
+        });
     } catch (error) {
-        console.error("Error retrieving user details:", error);
+        // Log unexpected errors
+        console.error(`[GET USER DETAILS] Error while fetching user details:`, error);
         res.status(500).json({ error: "Internal server error" });
     }
 });
 
 
 
-app.post("/api/place-order", async (req, res) => {
-    const { items, total, deliveryDate, deliveryFee, serviceFee, userId, householdId } = req.body;
 
-    // Basic validation
-    if (!items || !items.length || !deliveryDate) {
-        console.error("Invalid order details:", { items, deliveryDate });
+
+
+
+
+// server.js
+app.post("/api/place-order", async (req, res) => {
+    const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = req.body;
+
+    // Basic Validation
+    if (!items || !items.length || !deliveryDate || !userId || !supermarketId) {
         return res.status(400).json({ error: "Invalid order details." });
     }
 
     const client = await pool.connect();
     try {
-        console.log("Starting order placement...");
-        console.log("Order details received:", { items, total, deliveryDate, deliveryFee, serviceFee, userId, householdId });
-
         await client.query("BEGIN");
 
-        let orderId;
+        // Calculate totals
+        const grocerySubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const amountToDeduct = grocerySubtotal + tax;
+        const totalRequired = amountToDeduct + deliveryFee + serviceFee;
 
-        if (householdId) {
-            console.log("Checking if an existing order is present for household:", householdId);
-            const existingOrderQuery = `
-                SELECT order_id FROM orders 
-                WHERE household_id = $1 AND delivery_date = $2
-            `;
-            const existingOrderResult = await client.query(existingOrderQuery, [householdId, deliveryDate]);
+        let userBalance = 0;
 
-            if (existingOrderResult.rows.length > 0) {
-                // Use the existing order ID
-                orderId = existingOrderResult.rows[0].order_id;
-                console.log("Existing order found with order_id:", orderId);
-            }
+        // Fetch individual user balance
+        const userBalanceResult = await client.query(
+            `SELECT balance FROM users WHERE user_id = $1`,
+            [userId]
+        );
+
+        if (userBalanceResult.rows.length === 0) {
+            throw new Error("User not found.");
         }
 
-        // If no existing order, create a new one
-        if (!orderId) {
-            console.log("Creating a new order...");
-            const orderResult = await client.query(
-                `INSERT INTO orders (user_id, household_id, is_shared, total_cost, delivery_fee, service_fee, status, created_at, delivery_date) 
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), $8) RETURNING order_id`,
-                [
-                    userId || null,
-                    householdId || null,
-                    householdId ? true : false,
-                    total,
-                    deliveryFee,
-                    serviceFee,
-                    "Pending",
-                    deliveryDate,
-                ]
-            );
-            orderId = orderResult.rows[0].order_id;
-            console.log("New order created with order_id:", orderId);
+        userBalance = parseFloat(userBalanceResult.rows[0].balance);
+        if (isNaN(userBalance)) {
+            userBalance = 0;
         }
 
-        // Insert items into `order_items`
-        console.log("Inserting items into order_items...");
+        console.log(`User Balance (ID: ${userId}): ${userBalance}`);
+        console.log(`Grocery + Tax Amount: ${amountToDeduct}`);
+        console.log(`Total Required (Including Fees): ${totalRequired}`);
+
+        if (userBalance < amountToDeduct) {
+            const shortfall = (amountToDeduct - userBalance).toFixed(2);
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+                error: "Insufficient balance",
+                message: `You need an additional $${shortfall} to proceed.`,
+                shortfall
+            });
+        }
+
+        // Deduct groceries and tax from balance
+        const deductionAmount = -amountToDeduct; // Negative value to indicate deduction
+        await client.query(
+            `UPDATE users
+             SET balance = balance + $1
+             WHERE user_id = $2
+             RETURNING balance`,
+            [deductionAmount, userId]
+        );
+        console.log(`Deducted amount: ${deductionAmount}`);
+
+        const existingOrdersQuery = `
+            SELECT DISTINCT o.order_id, COUNT(DISTINCT oi.user_id) AS user_count
+            FROM orders o
+            JOIN order_items oi ON o.order_id = oi.order_id
+            JOIN products p ON oi.product_id = p.product_id
+            WHERE o.household_id = $1
+              AND o.delivery_date = $2
+              AND p.supermarket_id = $3
+            GROUP BY o.order_id
+        `;
+        const existingOrdersResult = await client.query(existingOrdersQuery, [
+            householdId,
+            deliveryDate,
+            supermarketId,
+        ]);
+
+        let sharedUserCount = 1; // Include the current user
+        if (existingOrdersResult.rows.length > 0) {
+            sharedUserCount += parseInt(existingOrdersResult.rows[0].user_count, 10);
+        }
+
+        const sharedDeliveryFee = parseFloat(deliveryFee) / sharedUserCount;
+        const sharedServiceFee = parseFloat(serviceFee) / sharedUserCount;
+
+
+        // Create the order
+        const orderResult = await client.query(
+            `INSERT INTO orders (user_id, household_id, is_shared, total_cost, delivery_fee, service_fee, tax, status, created_at, delivery_date)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'Pending', NOW(), $8) RETURNING order_id`,
+            [
+                userId,
+                householdId || null,
+                !!householdId,
+                grocerySubtotal + tax,
+                deliveryFee,
+                serviceFee,
+                tax,
+                deliveryDate
+            ]
+        );
+        const orderId = orderResult.rows[0].order_id;
+        console.log(`Created order with ID: ${orderId}`);
+
+        // Insert order items
         for (const item of items) {
-            console.log("Inserting item:", item);
             await client.query(
-                `INSERT INTO order_items (order_id, product_id, user_id, quantity, unit_price, subtotal) 
+                `INSERT INTO order_items (order_id, product_id, user_id, quantity, unit_price, subtotal)
                  VALUES ($1, $2, $3, $4, $5, $6)`,
-                [
-                    orderId,
-                    item.id,
-                    userId || null,
-                    item.quantity,
-                    item.price,
-                    item.price * item.quantity,
-                ]
+                [orderId, item.id, userId, item.quantity, item.price, item.price * item.quantity]
             );
+            console.log(`Inserted item ID: ${item.id}, Quantity: ${item.quantity}`);
         }
 
-        // Update the fees and user totals for the household
         if (householdId) {
             console.log("Updating fees and user totals for household...");
             const userCountQuery = `SELECT DISTINCT user_id FROM order_items WHERE order_id = $1`;
@@ -564,12 +811,172 @@ app.post("/api/place-order", async (req, res) => {
         }
 
         await client.query("COMMIT");
-        console.log("Order placed successfully with orderId:", orderId);
-        res.status(200).json({ message: "Order placed successfully!", orderId });
+        console.log(`Order placed successfully with ID: ${orderId}`);
+        return res.status(200).json({ message: "Order placed successfully!", orderId });
     } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error placing order:", error);
-        res.status(500).json({ error: "Failed to place order.", details: error.message });
+        return res.status(500).json({ error: "Failed to place order." });
+    } finally {
+        client.release();
+    }
+});
+
+
+
+
+
+app.get("/api/courier-orders", async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT o.order_id, o.delivery_date, o.delivery_fee, o.service_fee, o.status,
+                   h.address,
+                   u.user_id, u.first_name, u.last_name,
+                   oi.product_id, oi.quantity, oi.unit_price, oi.subtotal, p.name AS product_name
+            FROM orders o
+            JOIN households h ON o.household_id = h.household_id
+            JOIN order_items oi ON o.order_id = oi.order_id
+            JOIN products p ON p.product_id = oi.product_id
+            JOIN users u ON u.user_id = oi.user_id
+            WHERE o.status = 'Pending'
+            ORDER BY o.order_id ASC;
+        `);
+
+        if (result.rows.length === 0) {
+            return res.status(200).json({ orders: [] });
+        }
+
+        // Group by order_id
+        const ordersMap = {};
+        result.rows.forEach(row => {
+            if (!ordersMap[row.order_id]) {
+                ordersMap[row.order_id] = {
+                    order_id: row.order_id,
+                    delivery_date: row.delivery_date,
+                    delivery_fee: parseFloat(row.delivery_fee),
+                    service_fee: parseFloat(row.service_fee),
+                    status: row.status,
+                    address: row.address,
+                    users: {},
+                };
+            }
+
+            if (!ordersMap[row.order_id].users[row.user_id]) {
+                ordersMap[row.order_id].users[row.user_id] = {
+                    user_id: row.user_id,
+                    first_name: row.first_name,
+                    last_name: row.last_name,
+                    items: [],
+                };
+            }
+
+            ordersMap[row.order_id].users[row.user_id].items.push({
+                product_id: row.product_id,
+                product_name: row.product_name,
+                quantity: row.quantity,
+                unit_price: parseFloat(row.unit_price),
+                subtotal: parseFloat(row.subtotal),
+            });
+        });
+
+        const orders = Object.values(ordersMap).map(order => ({
+            ...order,
+            users: Object.values(order.users),
+        }));
+
+        res.json({ orders });
+    } catch (error) {
+        console.error("Error fetching courier orders:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
+
+app.post("/api/complete-delivery", async (req, res) => {
+    const { orderId } = req.body;
+
+    if (!orderId) {
+        return res.status(400).json({ error: "Order ID is required." });
+    }
+
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+
+        // Fetch order details, including userId
+        const orderResult = await client.query(
+            `SELECT user_id, delivery_fee, service_fee, status
+             FROM orders WHERE order_id = $1 FOR UPDATE`,
+            [orderId]
+        );
+
+        if (orderResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "Order not found." });
+        }
+
+        const { user_id: userId, delivery_fee, service_fee, status } = orderResult.rows[0];
+
+        if (status !== "Pending") {
+            await client.query("ROLLBACK");
+            return res.status(400).json({ error: "Order not in a state to complete delivery." });
+        }
+
+        // Parse delivery_fee and service_fee as numbers
+        const numericDeliveryFee = parseFloat(delivery_fee) || 0;
+        const numericServiceFee = parseFloat(service_fee) || 0;
+        const feesToDeduct = numericDeliveryFee + numericServiceFee;
+
+        // Check if the user has sufficient balance
+        const userBalanceResult = await client.query(
+            `SELECT balance FROM users WHERE user_id = $1 FOR UPDATE`,
+            [userId]
+        );
+
+        if (userBalanceResult.rows.length === 0) {
+            await client.query("ROLLBACK");
+            return res.status(404).json({ error: "User not found." });
+        }
+
+        let userBalance = parseFloat(userBalanceResult.rows[0].balance);
+        if (isNaN(userBalance)) userBalance = 0;
+
+        if (userBalance < feesToDeduct) {
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+                error: "Insufficient balance",
+                message: `You need an additional $${(feesToDeduct - userBalance).toFixed(2)} to cover delivery and service fees.`,
+            });
+        }
+
+        // Deduct delivery and service fees from user balance
+        const newBalance = userBalance - feesToDeduct;
+        await client.query(
+            `UPDATE users SET balance = $1 WHERE user_id = $2`,
+            [newBalance, userId]
+        );
+
+        // Record the payment in the `payments` table
+        await client.query(
+            `INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
+             VALUES ($1, $2, $3, 'completed', NOW())`,
+            [userId, orderId, -feesToDeduct]
+        );
+
+        // Update the order status to 'Completed'
+        await client.query(
+            `UPDATE orders SET status = 'Completed' WHERE order_id = $1`,
+            [orderId]
+        );
+
+        await client.query("COMMIT");
+        console.log(`Completed delivery for order ID: ${orderId}, Fees Deducted: ${feesToDeduct}`);
+        return res.status(200).json({ message: "Delivery completed and fees deducted successfully." });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error completing delivery:", error);
+        return res.status(500).json({ error: "Internal server error." });
     } finally {
         client.release();
     }
@@ -580,8 +987,16 @@ app.post("/api/place-order", async (req, res) => {
 
 
 
+
+
+
+
 app.post("/api/household-orders", async (req, res) => {
     const { householdId, deliveryDate } = req.body;
+
+    if (!householdId) {
+        return res.status(400).json({ error: "Household ID is required." });
+    }
 
     try {
         let query = `
@@ -665,5 +1080,12 @@ app.post("/api/household-orders", async (req, res) => {
 // Start the server
 app.listen(port, async () => {
     console.log(`Server running on http://localhost:${port}`);
-    await populateDatabase(); // Populate the database every time the server starts
+
+    // Trigger database population during server startup
+    try {
+        console.log("Performing initial database population check...");
+        await checkAndPopulateDatabase({}, {}, () => {});
+    } catch (error) {
+        console.error("Error during initial database population check:", error);
+    }
 });

@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import { useBasket } from "../context/BasketContext";
 import { useNavigate } from "react-router-dom";
-import supermarkets from "../supermarketData";
 
 const BasketPage = () => {
     const {
@@ -10,7 +9,7 @@ const BasketPage = () => {
         removeFromBasket,
         clearBasket,
         lastVisitedSupermarket,
-        placeOrder, // New function from BasketContext
+        placeOrder,
     } = useBasket();
     const navigate = useNavigate();
     const [deliveryDate, setDeliveryDate] = useState("");
@@ -22,16 +21,16 @@ const BasketPage = () => {
     const uniqueStoreIds = [...new Set(basket.map((item) => item.storeId))];
     const deliveryFee = BASE_DELIVERY_FEE * uniqueStoreIds.length;
 
-    const groupedItems = basket.reduce((acc, item) => {
-        if (!acc[item.storeId]) acc[item.storeId] = [];
-        acc[item.storeId].push(item);
-        return acc;
-    }, {});
-
     const calculateSubtotal = () =>
         basket.reduce((total, item) => total + item.price * item.quantity, 0);
 
-    const calculateTotal = () => calculateSubtotal() + deliveryFee + SERVICE_FEE;
+    const calculateTax = () => parseFloat((calculateSubtotal() * 0.1).toFixed(2)); // 10% tax
+
+    const calculateTotal = () => {
+        const subtotal = calculateSubtotal();
+        const tax = calculateTax();
+        return subtotal + deliveryFee + SERVICE_FEE + tax;
+    };
 
     const handleCheckout = async () => {
         if (!deliveryDate || new Date(deliveryDate).getTime() < Date.now()) {
@@ -39,52 +38,71 @@ const BasketPage = () => {
             return;
         }
 
-        setIsSubmitting(true); // Start submitting state
+        setIsSubmitting(true);
 
-        // Retrieve user data from localStorage
         const user = JSON.parse(localStorage.getItem("user"));
-
         if (!user || !user.user_id) {
             alert("User information is missing. Please log in again.");
             setIsSubmitting(false);
             return;
         }
 
-        try {
-            // Fetch the user details from the database to get householdId
-            const response = await fetch("http://localhost:5000/api/get-user-details", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ userId: user.user_id }),
-            });
+        const grocerySubtotal = calculateSubtotal();
+        const tax = calculateTax();
+        const totalRequired = grocerySubtotal + deliveryFee + SERVICE_FEE + tax;
 
-            if (!response.ok) {
-                throw new Error("Failed to fetch user details");
+        try {
+            console.log("Fetching user balance...");
+            const balanceResponse = await fetch(`http://localhost:5000/api/user-balance/${user.user_id}`);
+            if (!balanceResponse.ok) {
+                throw new Error("Failed to fetch user balance.");
+            }
+            const balanceData = await balanceResponse.json();
+            let userBalance = parseFloat(balanceData.balance);
+
+            console.log("User Balance:", userBalance);
+            console.log("Total Required:", totalRequired);
+
+            if (isNaN(userBalance)) {
+                userBalance = 0; // Handle invalid balance values
             }
 
-            const userDetails = await response.json();
-            const householdId = userDetails.household ? userDetails.household.household_id : null;
+            if (userBalance < totalRequired) {
+                const shortfall = (totalRequired - userBalance).toFixed(2);
+                const householdId = user.household_id || null; // Assuming user data includes household_id
 
-            if (!householdId) {
-                alert("Household information is missing. Please try again or contact support.");
+                alert(`Insufficient balance. You need an additional $${shortfall} to proceed.`);
+                navigate("/top-up", {
+                    state: {
+                        prefilledAmount: shortfall,
+                        orderDetails: {
+                            items: basket,
+                            total: calculateTotal(),
+                            deliveryDate,
+                            deliveryFee,
+                            serviceFee: SERVICE_FEE,
+                            tax,
+                            userId: user.user_id,
+                            householdId: householdId, // Include householdId if available
+                        },
+                    },
+                });
                 setIsSubmitting(false);
                 return;
             }
 
-            // Prepare order data for saving in the database
+            // Proceed to place order
             const orderDetails = {
                 items: basket,
                 total: calculateTotal(),
                 deliveryDate,
                 deliveryFee,
                 serviceFee: SERVICE_FEE,
-                householdId,
-                userId: userDetails.user_id, // Use the retrieved user ID
+                tax,
+                userId: user.user_id,
+                householdId: user.household_id || null, // Include householdId
             };
 
-            // Place the order
             const success = await placeOrder(orderDetails);
             if (success) {
                 alert("Order placed successfully!");
@@ -98,7 +116,7 @@ const BasketPage = () => {
             alert("There was an error processing your order. Please try again.");
         }
 
-        setIsSubmitting(false); // End submitting state
+        setIsSubmitting(false);
     };
 
     if (!basket.length) {
@@ -117,56 +135,77 @@ const BasketPage = () => {
 
     return (
         <div className="min-h-screen bg-gray-100 p-6">
-            <h1 className="text-4xl font-bold mb-6">Your Basket</h1>
-            {Object.entries(groupedItems).map(([storeId, items]) => {
-                const store = supermarkets.find((s) => s.id === parseInt(storeId));
-                return (
-                    <div key={storeId} className="mb-8">
-                        <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-                            {store?.name || "Unknown Store"}
-                        </h2>
-                        {items.map((item) => (
-                            <div key={item.id} className="flex items-center mb-4">
-                                <img
-                                    src={item.image}
-                                    alt={item.name}
-                                    className="w-24 h-24 object-cover rounded-md mr-4"
-                                />
-                                <div className="flex-1">
-                                    <h3 className="text-xl">{item.name}</h3>
-                                    <p>${item.price.toFixed(2)}</p>
-                                    <div className="flex items-center mt-2">
-                                        <button
-                                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                            className="bg-gray-300 px-3 py-1 rounded"
-                                        >
-                                            -
-                                        </button>
-                                        <span className="px-4">{item.quantity}</span>
-                                        <button
-                                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                            className="bg-gray-300 px-3 py-1 rounded"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-                                </div>
+            <h1 className="text-4xl font-bold text-center mb-8">Your Cart ({basket.length} items)</h1>
+            <table className="w-full border-collapse bg-white rounded-lg shadow-lg">
+                <thead>
+                <tr className="bg-gray-200 text-gray-700">
+                    <th className="text-left p-4">Item</th>
+                    <th className="text-right p-4">Price</th>
+                    <th className="text-center p-4">Quantity</th>
+                    <th className="text-right p-4">Total</th>
+                    <th className="text-center p-4">Action</th>
+                </tr>
+                </thead>
+                <tbody>
+                {basket.map((item) => (
+                    <tr key={item.id} className="border-t">
+                        <td className="p-4 flex items-center space-x-4">
+                            <img
+                                src={item.image}
+                                alt={item.name}
+                                className="w-16 h-16 object-cover rounded-md"
+                            />
+                            <div>
+                                <h3 className="font-semibold text-lg">{item.name}</h3>
+                                {item.estimatedDelivery && (
+                                    <p className="text-sm text-orange-500">
+                                        Estimated Ship Date: {item.estimatedDelivery}
+                                    </p>
+                                )}
+                            </div>
+                        </td>
+                        <td className="p-4 text-right text-lg">${item.price.toFixed(2)}</td>
+                        <td className="p-4 text-center">
+                            <div className="inline-flex items-center border rounded">
                                 <button
-                                    onClick={() => removeFromBasket(item.id)}
-                                    className="bg-red-500 text-white px-3 py-1 rounded"
+                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-l"
                                 >
-                                    Remove
+                                    -
+                                </button>
+                                <span className="px-4">{item.quantity}</span>
+                                <button
+                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-r"
+                                >
+                                    +
                                 </button>
                             </div>
-                        ))}
-                    </div>
-                );
-            })}
-            <div className="mt-6">
-                <div className="text-xl">
+                        </td>
+                        <td className="p-4 text-right text-lg">
+                            ${(item.price * item.quantity).toFixed(2)}
+                        </td>
+                        <td className="p-4 text-center">
+                            <button
+                                onClick={() => removeFromBasket(item.id)}
+                                className="bg-red-500 text-white px-3 py-1 rounded-lg"
+                            >
+                                Remove
+                            </button>
+                        </td>
+                    </tr>
+                ))}
+                </tbody>
+            </table>
+            <div className="mt-8">
+                <div className="text-lg mb-6">
                     <div className="flex justify-between">
                         <span>Subtotal:</span>
                         <span>${calculateSubtotal().toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span>Sales Tax (10%):</span>
+                        <span>${calculateTax().toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
                         <span>Delivery Fee:</span>
@@ -176,18 +215,16 @@ const BasketPage = () => {
                         <span>Service Fee:</span>
                         <span>${SERVICE_FEE.toFixed(2)}</span>
                     </div>
-                    <div className="flex justify-between font-bold mt-4 text-lg">
-                        <span>Total:</span>
+                    <div className="flex justify-between font-bold text-xl">
+                        <span>Grand Total:</span>
                         <span>${calculateTotal().toFixed(2)}</span>
                     </div>
                 </div>
-                <div className="mt-6">
-                    <label className="block text-gray-700 text-lg mb-2">
-                        Select Delivery Date:
-                    </label>
+                <div>
+                    <label className="block text-gray-700 text-lg mb-2">Select Delivery Date:</label>
                     <input
                         type="date"
-                        className="border rounded-lg px-3 py-2"
+                        className="border rounded-lg px-3 py-2 w-full"
                         value={deliveryDate}
                         onChange={(e) => setDeliveryDate(e.target.value)}
                     />

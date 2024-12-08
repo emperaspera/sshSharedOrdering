@@ -12,6 +12,8 @@ import TableDeskLoginPage from "./pages/TableDeskLoginPage";
 import AccountPage from "./pages/AccountPage";
 import ProfileSelectionPage from "./pages/ProfileSelectionPage";
 import OrdersPage from "./pages/OrdersPage.jsx";
+import CourierOrdersPage from "./pages/CourierOrdersPage.jsx";
+import TopUpPage from "./pages/TopUpPage.jsx";
 
 const App = () => {
     return (
@@ -20,7 +22,7 @@ const App = () => {
                 <Routes>
                     {/* Landing Page Route */}
                     <Route path="/" element={<LandingPage />} />
-
+                    <Route path="/courier/orders" element={<CourierOrdersPage />} />
                     {/* Authentication Routes */}
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/signup" element={<SignupPage />} />
@@ -34,6 +36,7 @@ const App = () => {
                     <Route path="/main/inventory/:id" element={<InventoryScreen />} />
                     <Route path="/main/basket" element={<BasketPage />} />
                     <Route path="/main/order-success" element={<OrderSuccess />} />
+                    <Route path="/top-up" element={<TopUpPage />} />
                 </Routes>
             </Router>
         </BasketProvider>
