@@ -33,8 +33,8 @@ async function populateDatabase() {
         // Insert Supermarkets
         for (const supermarket of supermarkets) {
             const insertSupermarketQuery = `
-                INSERT INTO supermarkets (supermarket_id, name, image_url, rating, description)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO supermarkets (supermarket_id, name, image_url, rating, description, coordinate_x, coordinate_y)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT (supermarket_id) DO NOTHING;
             `;
             await client.query(insertSupermarketQuery, [
@@ -43,6 +43,8 @@ async function populateDatabase() {
                 supermarket.image,
                 supermarket.rating,
                 supermarket.description,
+                supermarket.coordinate_x,
+                supermarket.coordinate_y,
             ]);
 
             // Insert Categories
@@ -126,7 +128,7 @@ app.post("/api/login", async (req, res) => {
         let household = null;
         if (user.household_id) {
             const householdResult = await pool.query(
-                "SELECT household_id, address FROM households WHERE household_id = $1",
+                "SELECT household_id, address, coordinate_x, coordinate_y FROM households WHERE household_id = $1",
                 [user.household_id]
             );
             household = householdResult.rows[0];
