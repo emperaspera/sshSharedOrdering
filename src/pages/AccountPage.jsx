@@ -13,6 +13,7 @@ const AccountPage = () => {
     const [editMode, setEditMode] = useState(false); // For toggling name/email editing
     const [updatedName, setUpdatedName] = useState("");
     const [updatedEmail, setUpdatedEmail] = useState("");
+    const [alreadyRedirected, setAlreadyRedirected] = useState(false);
 
     const navigate = useNavigate();
     const location = useLocation();
@@ -55,6 +56,22 @@ const AccountPage = () => {
     useEffect(() => {
         fetchUserDetails();
     }, [navigate]);
+
+    useEffect(() => {
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (user?.is_blocked && !alreadyRedirected) {
+            const amountToUnblock = Math.abs(user.balance || 0);
+            setAlreadyRedirected(true);
+            navigate("/top-up", {
+                state: {
+                    message: "Your account is blocked due to a negative balance. Please top up to continue.",
+                    prefilledAmount: amountToUnblock,
+                },
+            });
+        }
+    }, [navigate, alreadyRedirected]);
+
+
 
     useEffect(() => {
         if (location.state?.refreshBalance) {

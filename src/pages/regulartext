@@ -1,73 +1,177 @@
-const schemaQueries = [
-            `CREATE TABLE IF NOT EXISTS households (
-                household_id SERIAL PRIMARY KEY,
-                address TEXT NOT NULL,
-                pin_password TEXT NOT NULL
-            )`,
-            `CREATE TABLE IF NOT EXISTS users (
-                user_id SERIAL PRIMARY KEY,
-                household_id INT REFERENCES households(household_id) ON DELETE CASCADE,
-                first_name TEXT NOT NULL,
-                last_name TEXT NOT NULL,
-                email TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                pin_password TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_blocked BOOLEAN DEFAULT FALSE,
-                balance NUMERIC(10, 2) DEFAULT 0
-            )`,
-            `CREATE TABLE IF NOT EXISTS supermarkets (
-                supermarket_id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL,
-                description TEXT,
-                rating NUMERIC(3, 2),
-                image_url TEXT
-            )`,
-            `CREATE TABLE IF NOT EXISTS categories (
-                category_id SERIAL PRIMARY KEY,
-                supermarket_id INT REFERENCES supermarkets(supermarket_id) ON DELETE CASCADE,
-                name VARCHAR(100) NOT NULL,
-                UNIQUE (supermarket_id, name)
-            )`,
-            `CREATE TABLE IF NOT EXISTS products (
-                product_id SERIAL PRIMARY KEY,
-                name VARCHAR(100) NOT NULL,
-                description TEXT,
-                price NUMERIC(10, 2) NOT NULL,
-                category_id INT REFERENCES categories(category_id) ON DELETE CASCADE,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )`,
-            `CREATE TABLE IF NOT EXISTS orders (
-                order_id SERIAL PRIMARY KEY,
-                household_id INT REFERENCES households(household_id) ON DELETE CASCADE,
-                user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-                is_shared BOOLEAN DEFAULT FALSE,
-                total_cost NUMERIC(10, 2),
-                delivery_fee NUMERIC(10, 2),
-                service_fee NUMERIC(10, 2),
-                status VARCHAR(20) DEFAULT 'Pending',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                delivery_date DATE NOT NULL,
-                tax NUMERIC(10, 2) DEFAULT 0
-            )`,
-            `CREATE TABLE IF NOT EXISTS order_items (
-                item_id SERIAL PRIMARY KEY,
-                order_id INT REFERENCES orders(order_id) ON DELETE CASCADE,
-                product_id INT REFERENCES products(product_id) ON DELETE CASCADE,
-                user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-                quantity INT NOT NULL,
-                unit_price NUMERIC(10, 2) NOT NULL,
-                subtotal NUMERIC(10, 2) NOT NULL,
-                delivery_fee_share NUMERIC(10, 2),
-                service_fee_share NUMERIC(10, 2),
-                user_total NUMERIC(10, 2)
-            )`,
-            `CREATE TABLE IF NOT EXISTS payments (
-                payment_id SERIAL PRIMARY KEY,
-                order_id INT REFERENCES orders(order_id) ON DELETE CASCADE,
-                user_id INT REFERENCES users(user_id) ON DELETE SET NULL,
-                amount NUMERIC(10, 2) NOT NULL,
-                status VARCHAR(20) DEFAULT 'Pending',
-                transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )`
-        ];
+app.post("/api/top-up", async (req, res) => {
+    const { userId, amount, cardNumber } = req.body;
+
+    // Validation
+    if (!userId || amount === undefined || !cardNumber) {
+        return res.status(400).json({ error: "Missing required fields." });
+    }
+
+    if (typeof amount !== "number" || isNaN(amount) || amount <= 0) {
+        return res.status(400).json({ error: "Invalid top-up amount." });
+    }
+
+    if (!/^\d{16}$/.test(cardNumber)) {
+        return res.status(400).json({ error: "Invalid card number." });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        // Fetch current balance
+        const userResult = await client.query(
+            "SELECT balance FROM users WHERE user_id = $1 FOR UPDATE",
+            [userId]
+        );
+        if (userResult.rows.length === 0) {
+            throw new Error("User not found.");
+        }
+
+        let currentBalance = parseFloat(userResult.rows[0].balance);
+        if (isNaN(currentBalance)) currentBalance = 0;
+
+        // Update balance
+        const updatedBalance = currentBalance + amount;
+        await client.query(
+            "UPDATE users SET balance = $1 WHERE user_id = $2",
+            [updatedBalance, userId]
+        );
+
+        // Insert payment record
+        const insertPaymentQuery = `
+            INSERT INTO payments (user_id, amount, status, transaction_date)
+            VALUES ($1, $2, 'completed', NOW())
+        `;
+        await client.query(insertPaymentQuery, [userId, amount]);
+
+        await client.query("COMMIT");
+
+        res.status(200).json({
+            message: "Top-up successful.",
+            updatedBalance: updatedBalance,
+        });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error during top-up:", error);
+        res.status(500).json({ error: "Internal server error during top-up." });
+    } finally {
+        client.release();
+    }
+});
+
+
+
+
+
+
+
+
+app.post("/api/place-order", async (req, res) => {
+    const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = req.body;
+
+    if (!items || !items.length || !deliveryDate || !userId) {
+        return res.status(400).json({ error: "Invalid order details." });
+    }
+
+    const client = await pool.connect();
+
+    try {
+        await client.query("BEGIN");
+
+        // Calculate the total cost
+        const grocerySubtotal = items.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+        const totalRequired = grocerySubtotal + parseFloat(tax) + parseFloat(deliveryFee) + parseFloat(serviceFee);
+
+        // Fetch the user's current balance
+        const userBalanceQuery = `SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id = $1`;
+        const userBalanceResult = await client.query(userBalanceQuery, [userId]);
+
+        if (userBalanceResult.rows.length === 0) {
+            throw new Error("User not found.");
+        }
+
+        const userBalance = parseFloat(userBalanceResult.rows[0].balance);
+
+        if (userBalance < totalRequired) {
+            const shortfall = (totalRequired - userBalance).toFixed(2);
+            await client.query("ROLLBACK");
+            return res.status(400).json({
+                error: "Insufficient balance",
+                message: `You need an additional $${shortfall} to proceed.`,
+            });
+        }
+
+        // Deduct the totalRequired amount from the user's balance
+        const updateBalanceQuery = `
+            UPDATE users
+            SET balance = balance - $1
+            WHERE user_id = $2
+        `;
+        await client.query(updateBalanceQuery, [totalRequired, userId]);
+
+        // Create the order
+        const orderQuery = `
+            INSERT INTO orders (user_id, household_id, total_cost, delivery_fee, service_fee, tax, status, created_at, delivery_date)
+            VALUES ($1, $2, $3, $4, $5, $6, 'Pending', NOW(), $7)
+            RETURNING order_id
+        `;
+        const orderResult = await client.query(orderQuery, [
+            userId,
+            householdId || null,
+            grocerySubtotal + tax,
+            deliveryFee,
+            serviceFee,
+            tax,
+            deliveryDate,
+        ]);
+
+        const orderId = orderResult.rows[0].order_id;
+
+        // Insert items into order_items
+        const orderItemsQuery = `
+            INSERT INTO order_items (order_id, product_id, user_id, quantity, unit_price, subtotal)
+            VALUES ($1, $2, $3, $4, $5, $6)
+        `;
+        for (const item of items) {
+            await client.query(orderItemsQuery, [
+                orderId,
+                item.product_id,
+                userId,
+                item.quantity,
+                item.unit_price,
+                item.unit_price * item.quantity,
+            ]);
+        }
+
+        await client.query("COMMIT");
+
+        res.status(200).json({ message: "Order placed successfully.", orderId });
+    } catch (error) {
+        await client.query("ROLLBACK");
+        console.error("Error placing order:", error);
+        res.status(500).json({ error: "Failed to place order." });
+    } finally {
+        client.release();
+    }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

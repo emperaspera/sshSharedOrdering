@@ -114,37 +114,4 @@ function capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
-
-// function generateCategories(supermarketId) {
-//     const categoryNames = ["Fruits", "Vegetables", "Snacks", "Dairy", "Beverages"];
-//     return categoryNames.map((categoryName, categoryIndex) => ({
-//         name: categoryName,
-//         items: generateItems(supermarketId, categoryIndex + 1),
-//     }));
-// }
-//
-// function capitalizeFirstLetter(string) {
-//     return string.charAt(0).toUpperCase() + string.slice(1);
-// }
-//
-// function generateItems(supermarketId, categoryId) {
-//     const categoryFolders = ["Fruits", "Vegetables", "Snacks", "Dairy", "Beverages"];
-//     const folder = categoryFolders[categoryId - 1].toLowerCase();
-//
-//     return Array.from({ length: 15 }, (_, itemIndex) => {
-//         const id = (supermarketId - 1) * 75 + (categoryId - 1) * 15 + itemIndex + 1; // Unique ID
-//         const itemName = `${folder}-${itemIndex + 1}`;
-//         return {
-//             id,
-//             //name: `${categoryId === 1 ? "Fruit" : categoryId === 2 ? "Vegetable" : categoryId === 3 ? "Snack" : categoryId === 4 ? "Dairy" : "Beverage"} ${itemIndex + 1}`,
-//             name: capitalizeFirstLetter(folder) + ` ${itemIndex + 1}`,
-//             price: parseFloat((1.0 + itemIndex * 0.5).toFixed(2)), // Keep price as a number
-//             //description: `High-quality ${categoryId === 1 ? "fruit" : categoryId === 2 ? "vegetable" : categoryId === 3 ? "snack" : categoryId === 4 ? "dairy product" : "beverage"} ${itemIndex + 1}.`,
-//             //image: `https://via.placeholder.com/150x100?text=${categoryId === 1 ? "Fruit" : categoryId === 2 ? "Vegetable" : categoryId === 3 ? "Snack" : categoryId === 4 ? "Dairy" : "Beverage"}+${itemIndex + 1}`,
-//             description: `High-quality ${folder} product.`,
-//             image: `/product-images/${folder}/${itemName}.webp`,
-//         };
-//     });
-// }
-
 export default supermarkets;

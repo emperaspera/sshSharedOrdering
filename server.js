@@ -161,6 +161,7 @@ app.post("/api/login", async (req, res) => {
             household = householdResult.rows[0];
         }
 
+
         // Respond with user and household data (ensure complete user data is sent)
         res.status(200).json({
             message: "Login successful",
@@ -171,6 +172,8 @@ app.post("/api/login", async (req, res) => {
                 last_name: user.last_name,
                 email: user.email,
                 household_id: user.household_id,
+                balance: parseFloat(user.balance) || 0,
+                is_blocked: user.is_blocked
             },
             household,
         });
@@ -316,16 +319,12 @@ app.post("/api/top-up", async (req, res) => {
         return res.status(400).json({ error: "Missing required fields." });
     }
 
-    if (typeof amount !== "number") {
-        return res.status(400).json({ error: "Amount must be a number." });
-    }
-
-    if (amount <= 0) {
+    if (typeof amount !== "number" || isNaN(amount) || amount <= 0) {
         return res.status(400).json({ error: "Invalid amount." });
     }
 
     if (!/^\d{16}$/.test(cardNumber)) {
-        return res.status(400).json({ error: "Invalid card number." });
+        return res.status(400).json({ error: "Invalid card number. Must be 16 digits." });
     }
 
     const client = await pool.connect();
@@ -347,20 +346,23 @@ app.post("/api/top-up", async (req, res) => {
 
         const paymentId = paymentResult.rows[0].payment_id;
 
-        // Update the user's balance in the `users` table
+        // Update the user's balance and unblock them if balance becomes positive
         const updateBalanceQuery = `
-            UPDATE users
-            SET balance = balance + $1
-            WHERE user_id = $2
-            RETURNING balance
+        UPDATE users
+        SET balance = COALESCE(balance, 0) + $1,
+            is_blocked = CASE WHEN COALESCE(balance, 0) + $1 >= 0 THEN false ELSE is_blocked END
+        WHERE user_id = $2
+        RETURNING balance, is_blocked
         `;
+
         const balanceResult = await client.query(updateBalanceQuery, [amount, userId]);
 
         if (balanceResult.rows.length === 0) {
             throw new Error("Failed to update user balance.");
         }
 
-        const updatedBalance = balanceResult.rows[0].balance;
+        const updatedBalance = parseFloat(balanceResult.rows[0].balance);
+        const isBlocked = balanceResult.rows[0].is_blocked;
 
         await client.query("COMMIT");
 
@@ -368,6 +370,7 @@ app.post("/api/top-up", async (req, res) => {
             message: "Top-up successful.",
             paymentId: paymentId,
             updatedBalance: updatedBalance,
+            isBlocked: isBlocked,
         });
     } catch (error) {
         await client.query("ROLLBACK");
@@ -377,6 +380,8 @@ app.post("/api/top-up", async (req, res) => {
         client.release();
     }
 });
+
+
 
 
 
@@ -667,9 +672,9 @@ app.post("/api/get-user-details", async (req, res) => {
 // server.js
 app.post("/api/place-order", async (req, res) => {
     const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = req.body;
+    console.log("Received Payload:", req.body);
 
-    // Basic Validation
-    if (!items || !items.length || !deliveryDate || !userId || !supermarketId) {
+    if (!items || !items.length || !deliveryDate || !userId) {
         return res.status(400).json({ error: "Invalid order details." });
     }
 
@@ -677,16 +682,26 @@ app.post("/api/place-order", async (req, res) => {
     try {
         await client.query("BEGIN");
 
+        // Validate and process items
+        const processedItems = items.map(item => {
+            if (!item.product_id || isNaN(item.unit_price) || item.unit_price <= 0 || item.quantity <= 0) {
+                throw new Error("Invalid item data.");
+            }
+            return {
+                product_id: item.product_id,
+                quantity: parseInt(item.quantity, 10),
+                unit_price: parseFloat(item.unit_price),
+                subtotal: parseFloat(item.unit_price) * parseInt(item.quantity, 10),
+            };
+        });
+
         // Calculate totals
-        const grocerySubtotal = items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-        const amountToDeduct = grocerySubtotal + tax;
-        const totalRequired = amountToDeduct + deliveryFee + serviceFee;
+        const grocerySubtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
+        const amountToDeduct = grocerySubtotal + parseFloat(tax);
 
-        let userBalance = 0;
-
-        // Fetch individual user balance
+        // Fetch and validate user balance
         const userBalanceResult = await client.query(
-            `SELECT balance FROM users WHERE user_id = $1`,
+            `SELECT COALESCE(balance, 0) AS balance FROM users WHERE user_id = $1`,
             [userId]
         );
 
@@ -694,14 +709,11 @@ app.post("/api/place-order", async (req, res) => {
             throw new Error("User not found.");
         }
 
-        userBalance = parseFloat(userBalanceResult.rows[0].balance);
-        if (isNaN(userBalance)) {
-            userBalance = 0;
-        }
-
+        let userBalance = parseFloat(userBalanceResult.rows[0].balance);
         console.log(`User Balance (ID: ${userId}): ${userBalance}`);
         console.log(`Grocery + Tax Amount: ${amountToDeduct}`);
-        console.log(`Total Required (Including Fees): ${totalRequired}`);
+
+        if (isNaN(userBalance)) userBalance = 0;
 
         if (userBalance < amountToDeduct) {
             const shortfall = (amountToDeduct - userBalance).toFixed(2);
@@ -714,40 +726,34 @@ app.post("/api/place-order", async (req, res) => {
         }
 
         // Deduct groceries and tax from balance
-        const deductionAmount = -amountToDeduct; // Negative value to indicate deduction
-        await client.query(
+        const deductionAmount = -amountToDeduct;
+        const updatedBalanceResult = await client.query(
             `UPDATE users
-             SET balance = balance + $1
+             SET balance = COALESCE(balance, 0) + $1
              WHERE user_id = $2
              RETURNING balance`,
             [deductionAmount, userId]
         );
-        console.log(`Deducted amount: ${deductionAmount}`);
+        const updatedBalance = parseFloat(updatedBalanceResult.rows[0].balance);
+        console.log(`Updated Balance: ${updatedBalance}`);
 
+        // Determine shared fees
         const existingOrdersQuery = `
             SELECT DISTINCT o.order_id, COUNT(DISTINCT oi.user_id) AS user_count
             FROM orders o
             JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN products p ON oi.product_id = p.product_id
-            WHERE o.household_id = $1
-              AND o.delivery_date = $2
-              AND p.supermarket_id = $3
+            WHERE o.household_id = $1 AND o.delivery_date = $2
             GROUP BY o.order_id
         `;
-        const existingOrdersResult = await client.query(existingOrdersQuery, [
-            householdId,
-            deliveryDate,
-            supermarketId,
-        ]);
+        const existingOrdersResult = await client.query(existingOrdersQuery, [householdId, deliveryDate]);
 
-        let sharedUserCount = 1; // Include the current user
+        let sharedUserCount = 1;
         if (existingOrdersResult.rows.length > 0) {
             sharedUserCount += parseInt(existingOrdersResult.rows[0].user_count, 10);
         }
 
         const sharedDeliveryFee = parseFloat(deliveryFee) / sharedUserCount;
         const sharedServiceFee = parseFloat(serviceFee) / sharedUserCount;
-
 
         // Create the order
         const orderResult = await client.query(
@@ -768,46 +774,21 @@ app.post("/api/place-order", async (req, res) => {
         console.log(`Created order with ID: ${orderId}`);
 
         // Insert order items
-        for (const item of items) {
+        for (const item of processedItems) {
             await client.query(
-                `INSERT INTO order_items (order_id, product_id, user_id, quantity, unit_price, subtotal)
-                 VALUES ($1, $2, $3, $4, $5, $6)`,
-                [orderId, item.id, userId, item.quantity, item.price, item.price * item.quantity]
+                `INSERT INTO order_items (order_id, product_id, user_id, quantity, unit_price, subtotal, delivery_fee_share, service_fee_share)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+                [
+                    orderId,
+                    item.product_id,
+                    userId,
+                    item.quantity,
+                    item.unit_price,
+                    item.subtotal,
+                    sharedDeliveryFee,
+                    sharedServiceFee,
+                ]
             );
-            console.log(`Inserted item ID: ${item.id}, Quantity: ${item.quantity}`);
-        }
-
-        if (householdId) {
-            console.log("Updating fees and user totals for household...");
-            const userCountQuery = `SELECT DISTINCT user_id FROM order_items WHERE order_id = $1`;
-            const userCountResult = await client.query(userCountQuery, [orderId]);
-            const userCount = userCountResult.rows.length;
-
-            if (userCount > 0) {
-                const updatedDeliveryFee = deliveryFee / userCount;
-                const updatedServiceFee = serviceFee / userCount;
-
-                // Update the order_items table with new fee shares and user totals
-                for (const user of userCountResult.rows) {
-                    console.log("Updating fees for user_id:", user.user_id);
-                    const userItemsQuery = `
-                        SELECT SUM(subtotal) AS user_total FROM order_items
-                        WHERE order_id = $1 AND user_id = $2
-                    `;
-                    const userItemsResult = await client.query(userItemsQuery, [orderId, user.user_id]);
-                    const userItemsTotal = parseFloat(userItemsResult.rows[0].user_total);
-
-                    const updatedUserTotal = userItemsTotal + updatedDeliveryFee + updatedServiceFee;
-
-                    // Update the user total, delivery fee, and service fee for each user in order_items
-                    await client.query(
-                        `UPDATE order_items 
-                         SET delivery_fee_share = $1, service_fee_share = $2, user_total = $3
-                         WHERE order_id = $4 AND user_id = $5`,
-                        [updatedDeliveryFee, updatedServiceFee, updatedUserTotal, orderId, user.user_id]
-                    );
-                }
-            }
         }
 
         await client.query("COMMIT");
@@ -815,12 +796,13 @@ app.post("/api/place-order", async (req, res) => {
         return res.status(200).json({ message: "Order placed successfully!", orderId });
     } catch (error) {
         await client.query("ROLLBACK");
-        console.error("Error placing order:", error);
-        return res.status(500).json({ error: "Failed to place order." });
+        console.error("Error placing order:", error.message);
+        return res.status(500).json({ error: "Failed to place order.", details: error.message });
     } finally {
         client.release();
     }
 });
+
 
 
 
@@ -928,9 +910,9 @@ app.post("/api/complete-delivery", async (req, res) => {
         const numericServiceFee = parseFloat(service_fee) || 0;
         const feesToDeduct = numericDeliveryFee + numericServiceFee;
 
-        // Check if the user has sufficient balance
+        // Check the user's current balance
         const userBalanceResult = await client.query(
-            `SELECT balance FROM users WHERE user_id = $1 FOR UPDATE`,
+            `SELECT balance, is_blocked FROM users WHERE user_id = $1 FOR UPDATE`,
             [userId]
         );
 
@@ -939,30 +921,31 @@ app.post("/api/complete-delivery", async (req, res) => {
             return res.status(404).json({ error: "User not found." });
         }
 
-        let userBalance = parseFloat(userBalanceResult.rows[0].balance);
-        if (isNaN(userBalance)) userBalance = 0;
+        let { balance, is_blocked } = userBalanceResult.rows[0];
+        balance = parseFloat(balance) || 0;
 
-        if (userBalance < feesToDeduct) {
+        if (is_blocked) {
             await client.query("ROLLBACK");
-            return res.status(400).json({
-                error: "Insufficient balance",
-                message: `You need an additional $${(feesToDeduct - userBalance).toFixed(2)} to cover delivery and service fees.`,
-            });
+            return res.status(403).json({ error: "User account is blocked. Cannot complete delivery." });
         }
 
-        // Deduct delivery and service fees from user balance
-        const newBalance = userBalance - feesToDeduct;
-        await client.query(
-            `UPDATE users SET balance = $1 WHERE user_id = $2`,
-            [newBalance, userId]
-        );
+        // Calculate the new balance
+        const newBalance = balance - feesToDeduct;
+
+        // Update the user's balance and block them if their balance is negative
+        const updateUserQuery = `
+            UPDATE users
+            SET balance = $1, is_blocked = $2
+            WHERE user_id = $3
+        `;
+        await client.query(updateUserQuery, [newBalance, newBalance < 0, userId]);
 
         // Record the payment in the `payments` table
-        await client.query(
-            `INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
-             VALUES ($1, $2, $3, 'completed', NOW())`,
-            [userId, orderId, -feesToDeduct]
-        );
+        const insertPaymentQuery = `
+            INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
+            VALUES ($1, $2, $3, 'completed', NOW())
+        `;
+        await client.query(insertPaymentQuery, [userId, orderId, -feesToDeduct]);
 
         // Update the order status to 'Completed'
         await client.query(
@@ -981,6 +964,7 @@ app.post("/api/complete-delivery", async (req, res) => {
         client.release();
     }
 });
+
 
 
 
