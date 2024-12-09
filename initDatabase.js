@@ -7,7 +7,7 @@ const { Client } = pg;
 const DB_CONFIG = {
     user: "postgres", // PostgreSQL username
     host: "localhost", // Hostname
-    password: "'vbkm2005", // PostgreSQL password (change here only)
+    password: "your password", // PostgreSQL password (change here only)
     port: 5432, // Default port
     defaultDatabase: "postgres", // Default "postgres" database
     targetDatabase: "ssh", // Target database
