@@ -112,7 +112,8 @@ async function initializeSchema() {
                 service_fee NUMERIC(10, 2),
                 status VARCHAR(20) DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                delivery_date DATE NOT NULL
+                delivery_date DATE NOT NULL,
+                tax numeric(10,2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS order_items (
                 item_id SERIAL PRIMARY KEY,

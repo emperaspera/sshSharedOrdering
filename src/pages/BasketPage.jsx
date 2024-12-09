@@ -91,25 +91,51 @@ const BasketPage = () => {
                 return;
             }
 
-            // Proceed to place order
-            const orderDetails = {
-                items: basket,
-                total: calculateTotal(),
+            // const orderDetails = {
+            //     items: basket,
+            //     total: calculateTotal(),
+            //     deliveryDate,
+            //     deliveryFee,
+            //     serviceFee: SERVICE_FEE,
+            //     tax,
+            //     userId: user.user_id,
+            //     householdId: user.household_id || null, // Include householdId
+            // };
+
+            const payload = {
+                items: basket.map(item => ({
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                })),
                 deliveryDate,
                 deliveryFee,
                 serviceFee: SERVICE_FEE,
                 tax,
                 userId: user.user_id,
-                householdId: user.household_id || null, // Include householdId
+                householdId: user.household_id || null,
+                supermarketId: lastVisitedSupermarket,
             };
 
-            const success = await placeOrder(orderDetails);
-            if (success) {
+            
+            console.log("Payload for placeOrder:", payload);
+
+            const response = await fetch("http://localhost:5000/api/place-order", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (response.ok) {
                 alert("Order placed successfully!");
                 clearBasket();
                 navigate("/main/order-success");
             } else {
-                alert("Failed to place order. Please try again.");
+                const errorData = await response.json();
+                console.error("Error placing order:", errorData);
+                alert(errorData.error || "Failed to place order. Please try again.");
             }
         } catch (error) {
             console.error("Error during checkout:", error);

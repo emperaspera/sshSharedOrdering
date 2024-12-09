@@ -11,12 +11,44 @@ const TopUpPage = () => {
     const [topUpError, setTopUpError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [orderDetails, setOrderDetails] = useState(location.state?.orderDetails || null);
+    const [userBalance, setUserBalance] = useState(null);
+
+    const [isRedirecting, setIsRedirecting] = useState(false);
 
     useEffect(() => {
-        if (!orderDetails) {
-            navigate("/main/account");
+        if (!orderDetails && location.state?.message) {
+            // Stay on TopUpPage if there is no orderDetails but a top-up is required
+            return;
         }
-    }, [orderDetails, navigate]);
+        if (!orderDetails) {
+            navigate("/main/account", { replace: true });
+        }
+    }, [orderDetails, navigate, location.state]);
+
+
+    useEffect(() => {
+        // Redirect if there's no valid top-up context
+        if (!location.state?.prefilledAmount && !location.state?.message && !isRedirecting) {
+            setIsRedirecting(true);
+            navigate("/main/account", { replace: true });
+        }
+    }, [location.state, navigate, isRedirecting]);
+
+
+    const fetchUpdatedBalance = async (userId) => {
+        try {
+            const response = await fetch(`http://localhost:5000/api/user-balance/${userId}`);
+            if (!response.ok) throw new Error("Failed to fetch updated balance.");
+            const data = await response.json();
+            console.log("Fetched Updated Balance:", data.balance); // Debugging log
+            setUserBalance(parseFloat(data.balance));
+            return parseFloat(data.balance);
+        } catch (error) {
+            console.error("Error fetching updated balance:", error);
+            setTopUpError("Failed to fetch updated balance. Please try again.");
+            return null;
+        }
+    };
 
     const handleTopUp = async () => {
         setTopUpMessage("");
@@ -48,7 +80,7 @@ const TopUpPage = () => {
                 cardNumber: cardNumber,
             });
 
-            const response = await fetch("http://localhost:5000/api/top-up", {
+            const topUpResponse = await fetch("http://localhost:5000/api/top-up", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -60,18 +92,39 @@ const TopUpPage = () => {
                 }),
             });
 
-            const data = await response.json();
+            const topUpData = await topUpResponse.json();
 
-            if (!response.ok) {
-                throw new Error(data.error || "Top-up failed.");
+            if (!topUpResponse.ok) {
+                throw new Error(topUpData.error || "Top-up failed.");
             }
 
             setTopUpMessage("Top-up successful!");
 
-            // If there are orderDetails, proceed to place the order
-            if (orderDetails) {
-                const { items, total, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = orderDetails;
+            console.log("Updated Balance:", topUpData.updatedBalance);
 
+            // Fetch updated balance after top-up
+            const updatedBalance = await fetchUpdatedBalance(user.user_id);
+
+            if (updatedBalance === null) {
+                throw new Error("Failed to fetch updated balance after top-up.");
+            }
+
+            console.log("Updated Balance After Fetch:", updatedBalance);
+
+            if (updatedBalance >= 0) {
+                console.log("Redirecting to the main screen..."); // Debugging log
+                setTimeout(() => navigate("/main", { replace: true }), 100);
+            } else {
+                setTopUpMessage(
+                    `Top-up successful! However, you still need to top up $${Math.abs(updatedBalance).toFixed(2)} to unlock your account.`
+                );
+            }
+
+            // If there are orderDetails, proceed to place the order
+            if (orderDetails  && updatedBalance >= orderDetails.total) {
+                const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = orderDetails;
+
+                console.log("Attempting to place order with updated balance...");
                 const placeOrderResponse = await fetch("http://localhost:5000/api/place-order", {
                     method: "POST",
                     headers: {
@@ -79,7 +132,6 @@ const TopUpPage = () => {
                     },
                     body: JSON.stringify({
                         items,
-                        total,
                         deliveryDate,
                         deliveryFee,
                         serviceFee,
@@ -95,15 +147,15 @@ const TopUpPage = () => {
                     throw new Error(placeOrderData.error || "Failed to place order after top-up.");
                 }
 
-                // If order placement is successful, navigate to Order Success Page
+                // Navigate to Order Success Page if order is placed successfully
                 navigate("/main/order-success");
             } else {
                 // If no orderDetails, navigate back to Account Page
                 navigate("/main/account", { replace: true });
             }
         } catch (error) {
-            console.error("Top-up error:", error);
-            setTopUpError(error.message || "An error occurred during top-up.");
+            console.error("Top-up error or order placement error:", error);
+            setTopUpError(error.message || "An error occurred during top-up or order placement.");
         }
 
         setIsSubmitting(false);
@@ -113,6 +165,9 @@ const TopUpPage = () => {
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-yellow-400 to-orange-500 p-6">
             <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
                 <h2 className="text-2xl font-bold mb-6 text-gray-800">Top Up Your Account</h2>
+                {location.state?.message && (
+                    <p className="text-yellow-500 mb-4">{location.state.message}</p>
+                )}
                 {topUpMessage && <p className="text-green-500 mb-4">{topUpMessage}</p>}
                 {topUpError && <p className="text-red-500 mb-4">{topUpError}</p>}
                 <div className="mb-4">

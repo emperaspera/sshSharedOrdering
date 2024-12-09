@@ -30,6 +30,17 @@ const LoginPage = () => {
             // Store user data in localStorage
             localStorage.setItem("user", JSON.stringify(data.user));
 
+            // Redirect blocked users to the Top-Up Page
+            if (data.user.is_blocked) {
+                navigate("/top-up", {
+                    state: {
+                        message: "Your account is blocked. Please top up to continue.",
+                        prefilledAmount: Math.abs(data.user.balance || 0), // Suggest amount to clear debt
+                    },
+                });
+                return;
+            }
+
             // Determine mode based on household existence
             if (data.household && data.household.household_id) {
                 localStorage.setItem("household", JSON.stringify(data.household));
@@ -39,12 +50,10 @@ const LoginPage = () => {
                 localStorage.removeItem("household");
             }
 
-            console.log("Mode set to:", localStorage.getItem("mode")); // Debugging
-
             // Redirect to main page
             navigate("/main");
         } catch (err) {
-            console.error("Login error:", err); // Debugging
+            console.error("Login error:", err);
             setError("Failed to login. Please try again.");
         }
     };
