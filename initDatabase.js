@@ -7,7 +7,7 @@ const { Client } = pg;
 const DB_CONFIG = {
     user: "postgres", // PostgreSQL username
     host: "localhost", // Hostname
-    password: "your password", // PostgreSQL password (change here only)
+    password: "'vbkm2005", // PostgreSQL password (change here only)
     port: 5432, // Default port
     defaultDatabase: "postgres", // Default "postgres" database
     targetDatabase: "ssh", // Target database
@@ -112,7 +112,8 @@ async function initializeSchema() {
                 service_fee NUMERIC(10, 2),
                 status VARCHAR(20) DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                delivery_date DATE NOT NULL
+                delivery_date DATE NOT NULL,
+                tax numeric(10,2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS order_items (
                 item_id SERIAL PRIMARY KEY,
