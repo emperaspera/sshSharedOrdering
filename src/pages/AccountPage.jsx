@@ -25,7 +25,7 @@ const AccountPage = () => {
         try {
             const userId = JSON.parse(localStorage.getItem("user"))?.user_id;
             if (!userId) {
-                navigate("/login");
+                navigate("/login"); // Redirect if no user ID is found
                 return;
             }
 
@@ -41,6 +41,19 @@ const AccountPage = () => {
                 return;
             }
 
+            // Check if user is blocked
+            if (userData.is_blocked && !alreadyRedirected) {
+                const amountToUnblock = Math.abs(userData.balance || 0);
+                setAlreadyRedirected(true); // Prevent multiple navigations
+                navigate("/top-up", {
+                    state: {
+                        message: "Your account is blocked due to a negative balance. Please top up to continue.",
+                        prefilledAmount: amountToUnblock,
+                    },
+                });
+                return; // Prevent setting state after navigation
+            }
+
             setUser(userData);
             setBalance(Number(userData.balance));
             setUpdatedName(`${userData.first_name} ${userData.last_name}`);
@@ -53,15 +66,30 @@ const AccountPage = () => {
         }
     };
 
+
     useEffect(() => {
         fetchUserDetails();
     }, [navigate]);
 
     useEffect(() => {
+        console.log("Checking redirection condition for blocked user...");
+
         const user = JSON.parse(localStorage.getItem("user"));
-        if (user?.is_blocked && !alreadyRedirected) {
+
+        if (!user) {
+            console.warn("No user found, redirecting to login...");
+            navigate("/login");
+            return;
+        }
+
+        if (user.is_blocked && !localStorage.getItem("alreadyRedirected")) {
             const amountToUnblock = Math.abs(user.balance || 0);
-            setAlreadyRedirected(true);
+
+            console.log("User is blocked, redirecting to Top-Up...");
+
+            // Prevent multiple redirects by storing in localStorage
+            localStorage.setItem("alreadyRedirected", "true");
+
             navigate("/top-up", {
                 state: {
                     message: "Your account is blocked due to a negative balance. Please top up to continue.",
@@ -69,7 +97,12 @@ const AccountPage = () => {
                 },
             });
         }
-    }, [navigate, alreadyRedirected]);
+    }, [navigate]);
+
+
+
+
+
 
 
 
@@ -85,8 +118,18 @@ const AccountPage = () => {
     };
 
     const handleNavigateToTopUp = () => {
-        navigate("/top-up", { state: { defaultAmount: 10 } });
+        const user = JSON.parse(localStorage.getItem("user"));
+        if (!user) {
+            console.error("No user found in localStorage. Cannot navigate to Top-Up Page.");
+            return;
+        }
+
+        console.log("Navigating to Top-Up with defaultAmount: 10");
+        navigate("/top-up", {
+            state: { prefilledAmount: 10 }, // Pass necessary data
+        });
     };
+
 
     const handleUpdate = async (field, value) => {
         // Check if the value has changed
@@ -162,7 +205,7 @@ const AccountPage = () => {
             {/* Profile Picture Section */}
             <div className="bg-white text-gray-800 p-6 rounded-lg shadow-lg flex items-center gap-6">
                 <img
-                    src="/profile-picture.jpg"
+                    src="/public/profile-picture.jpg"
                     alt="Profile"
                     className="w-24 h-24 rounded-full border-4 border-gray-200"
                 />

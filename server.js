@@ -616,6 +616,37 @@ app.get("/api/test", (req, res) => {
     res.send("Server is running!");
 });
 
+// Add this to your server.js
+app.get("/api/user/:userId", async (req, res) => {
+    const { userId } = req.params;
+
+    try {
+        const result = await pool.query("SELECT * FROM users WHERE user_id = $1", [userId]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: "User not found" });
+        }
+
+        const user = result.rows[0];
+        res.json({
+            user: {
+                user_id: user.user_id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                email: user.email,
+                household_id: user.household_id,
+                balance: parseFloat(user.balance) || 0,
+                is_blocked: user.is_blocked,
+                mode: user.mode,
+            },
+        });
+    } catch (error) {
+        console.error("Error fetching user data:", error);
+        res.status(500).json({ error: "Internal server error" });
+    }
+});
+
+
 app.post("/api/get-user-details", async (req, res) => {
     const { userId } = req.body;
 
@@ -671,7 +702,7 @@ app.post("/api/get-user-details", async (req, res) => {
 
 // server.js
 app.post("/api/place-order", async (req, res) => {
-    const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = req.body;
+    const { items, deliveryDate, deliveryFee = 5.0, serviceFee = 2.5, tax, userId, householdId } = req.body;
     console.log("Received Payload:", req.body);
 
     if (!items || !items.length || !deliveryDate || !userId) {
@@ -737,24 +768,6 @@ app.post("/api/place-order", async (req, res) => {
         const updatedBalance = parseFloat(updatedBalanceResult.rows[0].balance);
         console.log(`Updated Balance: ${updatedBalance}`);
 
-        // Determine shared fees
-        const existingOrdersQuery = `
-            SELECT DISTINCT o.order_id, COUNT(DISTINCT oi.user_id) AS user_count
-            FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            WHERE o.household_id = $1 AND o.delivery_date = $2
-            GROUP BY o.order_id
-        `;
-        const existingOrdersResult = await client.query(existingOrdersQuery, [householdId, deliveryDate]);
-
-        let sharedUserCount = 1;
-        if (existingOrdersResult.rows.length > 0) {
-            sharedUserCount += parseInt(existingOrdersResult.rows[0].user_count, 10);
-        }
-
-        const sharedDeliveryFee = parseFloat(deliveryFee) / sharedUserCount;
-        const sharedServiceFee = parseFloat(serviceFee) / sharedUserCount;
-
         // Create the order
         const orderResult = await client.query(
             `INSERT INTO orders (user_id, household_id, is_shared, total_cost, delivery_fee, service_fee, tax, status, created_at, delivery_date)
@@ -772,6 +785,22 @@ app.post("/api/place-order", async (req, res) => {
         );
         const orderId = orderResult.rows[0].order_id;
         console.log(`Created order with ID: ${orderId}`);
+
+        // Fetch unique users who placed orders on the same delivery date and household
+        const uniqueUsersResult = await client.query(
+            `SELECT DISTINCT user_id
+             FROM orders
+             WHERE household_id = $1 AND delivery_date = $2`,
+            [householdId, deliveryDate]
+        );
+        const uniqueUsers = uniqueUsersResult.rows.map(row => row.user_id);
+        const totalUniqueUsers = uniqueUsers.length;
+
+        console.log(`Unique Users for Delivery Fee Split: ${uniqueUsers}`);
+
+        // Recalculate shared delivery and service fees
+        const sharedDeliveryFee = parseFloat(deliveryFee) / totalUniqueUsers;
+        const sharedServiceFee = parseFloat(serviceFee) / totalUniqueUsers;
 
         // Insert order items
         for (const item of processedItems) {
@@ -791,6 +820,18 @@ app.post("/api/place-order", async (req, res) => {
             );
         }
 
+        // Update all related order items with recalculated shared fees
+        await client.query(
+            `UPDATE order_items
+             SET delivery_fee_share = $1, service_fee_share = $2
+             WHERE order_id IN (
+                 SELECT order_id
+                 FROM orders
+                 WHERE household_id = $3 AND delivery_date = $4
+             )`,
+            [sharedDeliveryFee, sharedServiceFee, householdId, deliveryDate]
+        );
+
         await client.query("COMMIT");
         console.log(`Order placed successfully with ID: ${orderId}`);
         return res.status(200).json({ message: "Order placed successfully!", orderId });
@@ -802,6 +843,8 @@ app.post("/api/place-order", async (req, res) => {
         client.release();
     }
 });
+
+
 
 
 
@@ -886,10 +929,13 @@ app.post("/api/complete-delivery", async (req, res) => {
     try {
         await client.query("BEGIN");
 
-        // Fetch order details, including userId
+        // Fetch order details
         const orderResult = await client.query(
-            `SELECT user_id, delivery_fee, service_fee, status
-             FROM orders WHERE order_id = $1 FOR UPDATE`,
+            `SELECT o.household_id, o.delivery_date, o.status, oi.user_id, oi.delivery_fee_share, oi.service_fee_share, u.balance, u.is_blocked
+             FROM orders o
+             JOIN order_items oi ON o.order_id = oi.order_id
+             JOIN users u ON oi.user_id = u.user_id
+             WHERE o.order_id = $1 FOR UPDATE`,
             [orderId]
         );
 
@@ -898,64 +944,61 @@ app.post("/api/complete-delivery", async (req, res) => {
             return res.status(404).json({ error: "Order not found." });
         }
 
-        const { user_id: userId, delivery_fee, service_fee, status } = orderResult.rows[0];
-
+        const { household_id, delivery_date, status } = orderResult.rows[0];
         if (status !== "Pending") {
             await client.query("ROLLBACK");
             return res.status(400).json({ error: "Order not in a state to complete delivery." });
         }
 
-        // Parse delivery_fee and service_fee as numbers
-        const numericDeliveryFee = parseFloat(delivery_fee) || 0;
-        const numericServiceFee = parseFloat(service_fee) || 0;
-        const feesToDeduct = numericDeliveryFee + numericServiceFee;
-
-        // Check the user's current balance
-        const userBalanceResult = await client.query(
-            `SELECT balance, is_blocked FROM users WHERE user_id = $1 FOR UPDATE`,
-            [userId]
+        // Fetch related orders for the same household and delivery date
+        const relatedOrdersResult = await client.query(
+            `SELECT o.order_id, oi.user_id, oi.delivery_fee_share, oi.service_fee_share, u.balance, u.is_blocked
+             FROM orders o
+             JOIN order_items oi ON o.order_id = oi.order_id
+             JOIN users u ON oi.user_id = u.user_id
+             WHERE o.household_id = $1 AND o.delivery_date = $2 AND o.status = 'Pending' FOR UPDATE`,
+            [household_id, delivery_date]
         );
 
-        if (userBalanceResult.rows.length === 0) {
-            await client.query("ROLLBACK");
-            return res.status(404).json({ error: "User not found." });
+        const relatedOrders = relatedOrdersResult.rows;
+
+        // Process each order
+        for (const order of relatedOrders) {
+            const { user_id, delivery_fee_share, service_fee_share, balance, is_blocked } = order;
+
+            if (is_blocked) {
+                await client.query("ROLLBACK");
+                return res.status(403).json({ error: `User ID ${user_id} is blocked.` });
+            }
+
+            const totalFeeToDeduct = parseFloat(delivery_fee_share || 0) + parseFloat(service_fee_share || 0);
+            const newBalance = parseFloat(balance) - totalFeeToDeduct;
+
+            // Update user balance and block if necessary
+            await client.query(
+                `UPDATE users
+                 SET balance = $1, is_blocked = $2
+                 WHERE user_id = $3`,
+                [newBalance, newBalance < 0, user_id]
+            );
+
+            // Record payment
+            await client.query(
+                `INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
+                 VALUES ($1, $2, $3, 'completed', NOW())`,
+                [user_id, orderId, -totalFeeToDeduct]
+            );
         }
 
-        let { balance, is_blocked } = userBalanceResult.rows[0];
-        balance = parseFloat(balance) || 0;
-
-        if (is_blocked) {
-            await client.query("ROLLBACK");
-            return res.status(403).json({ error: "User account is blocked. Cannot complete delivery." });
-        }
-
-        // Calculate the new balance
-        const newBalance = balance - feesToDeduct;
-
-        // Update the user's balance and block them if their balance is negative
-        const updateUserQuery = `
-            UPDATE users
-            SET balance = $1, is_blocked = $2
-            WHERE user_id = $3
-        `;
-        await client.query(updateUserQuery, [newBalance, newBalance < 0, userId]);
-
-        // Record the payment in the `payments` table
-        const insertPaymentQuery = `
-            INSERT INTO payments (user_id, order_id, amount, status, transaction_date)
-            VALUES ($1, $2, $3, 'completed', NOW())
-        `;
-        await client.query(insertPaymentQuery, [userId, orderId, -feesToDeduct]);
-
-        // Update the order status to 'Completed'
+        // Mark all related orders as 'Completed'
+        const orderIds = relatedOrders.map((order) => order.order_id);
         await client.query(
-            `UPDATE orders SET status = 'Completed' WHERE order_id = $1`,
-            [orderId]
+            `UPDATE orders SET status = 'Completed' WHERE order_id = ANY($1)`,
+            [orderIds]
         );
 
         await client.query("COMMIT");
-        console.log(`Completed delivery for order ID: ${orderId}, Fees Deducted: ${feesToDeduct}`);
-        return res.status(200).json({ message: "Delivery completed and fees deducted successfully." });
+        return res.status(200).json({ message: "Delivery completed successfully." });
     } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error completing delivery:", error);
@@ -964,6 +1007,7 @@ app.post("/api/complete-delivery", async (req, res) => {
         client.release();
     }
 });
+
 
 
 

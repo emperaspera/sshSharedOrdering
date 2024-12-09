@@ -14,24 +14,49 @@ const TopUpPage = () => {
 
     const [isRedirecting, setIsRedirecting] = useState(false);
 
+
+
     useEffect(() => {
-        if (!orderDetails && location.state?.message) {
-            // Stay on TopUpPage if there is no orderDetails but a top-up is required
+        const user = JSON.parse(localStorage.getItem("user"));
+        console.log("User from localStorage:", user);
+        console.log("Location state:", location.state);
+
+        if (!user) {
+            console.warn("User not found! Redirecting to account page...");
+            navigate("/main/account", { replace: true });
             return;
         }
-        if (!orderDetails) {
-            navigate("/main/account", { replace: true });
-        }
-    }, [orderDetails, navigate, location.state]);
+
+        // Uncomment this only if necessary
+        // if (!location.state?.prefilledAmount && !location.state?.message) {
+        //     console.warn("Invalid location.state! Redirecting...");
+        //     navigate("/main/account", { replace: true });
+        // }
+    }, [location.state, navigate]);
 
 
-    useEffect(() => {
-        // Redirect if there's no valid top-up context
-        if (!location.state?.prefilledAmount && !location.state?.message && !isRedirecting) {
-            setIsRedirecting(true);
-            navigate("/main/account", { replace: true });
+    const updateLocalStorageAfterTopUp = async (userId) => {
+        try {
+            console.log("Fetching user data for userId:", userId);
+            if (!userId) throw new Error("Invalid userId provided.");
+
+            const response = await fetch(`http://localhost:5000/api/user/${userId}`); // Ensure this matches the backend route
+            if (!response.ok) {
+                if (response.status === 404) throw new Error("User not found.");
+                throw new Error("Failed to fetch user data.");
+            }
+
+            const userData = await response.json();
+
+            // Update localStorage with the updated user data
+            localStorage.setItem("user", JSON.stringify(userData.user));
+
+            return userData;
+        } catch (error) {
+            console.error("Error updating localStorage after top-up:", error);
+            throw error; // Re-throw to handle it in the calling function
         }
-    }, [location.state, navigate, isRedirecting]);
+    };
 
 
     const fetchUpdatedBalance = async (userId) => {
@@ -119,36 +144,43 @@ const TopUpPage = () => {
             }
 
             // If there are orderDetails, proceed to place the order
-            if (orderDetails  && updatedBalance >= orderDetails.total) {
-                const { items, deliveryDate, deliveryFee, serviceFee, tax, userId, householdId } = orderDetails;
+            if (orderDetails && updatedBalance >= orderDetails.total) {
+                const formattedItems = orderDetails.items.map((item) => ({
+                    product_id: item.id,
+                    quantity: item.quantity,
+                    unit_price: item.price,
+                }));
 
-                console.log("Attempting to place order with updated balance...");
+                const placeOrderPayload = {
+                    items: formattedItems,
+                    deliveryDate: orderDetails.deliveryDate,
+                    deliveryFee: orderDetails.deliveryFee,
+                    serviceFee: orderDetails.serviceFee,
+                    tax: orderDetails.tax,
+                    userId: user.user_id,
+                    householdId: orderDetails.householdId,
+                    supermarketId: orderDetails.supermarketId, // Ensure this is part of orderDetails
+                };
+
                 const placeOrderResponse = await fetch("http://localhost:5000/api/place-order", {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                     },
-                    body: JSON.stringify({
-                        items,
-                        deliveryDate,
-                        deliveryFee,
-                        serviceFee,
-                        tax,
-                        userId,
-                        householdId,
-                    }),
+                    body: JSON.stringify(placeOrderPayload),
                 });
 
                 const placeOrderData = await placeOrderResponse.json();
-
                 if (!placeOrderResponse.ok) {
-                    throw new Error(placeOrderData.error || "Failed to place order after top-up.");
+                    throw new Error(placeOrderData.error || "Failed to place order.");
                 }
 
-                // Navigate to Order Success Page if order is placed successfully
+                localStorage.removeItem("basket");
+
                 navigate("/main/order-success");
             } else {
-                // If no orderDetails, navigate back to Account Page
+                // Redirect back to Account Page
+                await updateLocalStorageAfterTopUp(user.user_id);
                 navigate("/main/account", { replace: true });
             }
         } catch (error) {
@@ -159,9 +191,17 @@ const TopUpPage = () => {
         setIsSubmitting(false);
     };
 
+
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-yellow-400 to-orange-500 p-6">
+        <div
+            className="min-h-screen flex items-center justify-center bg-gradient-to-r from-yellow-400 to-orange-500 p-6">
             <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+                <button
+                    onClick={() => navigate(-1)}
+                    className="mb-6 text-blue-500 hover:underline"
+                >
+                    &larr; Go Back
+                </button>
                 <h2 className="text-2xl font-bold mb-6 text-gray-800">Top Up Your Account</h2>
                 {location.state?.message && (
                     <p className="text-yellow-500 mb-4">{location.state.message}</p>
