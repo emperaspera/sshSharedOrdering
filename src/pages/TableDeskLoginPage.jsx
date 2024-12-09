@@ -63,7 +63,8 @@ const TableDeskLoginPage = () => {
     };
 
     return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div
+            className="min-h-screen bg-gray-100 flex items-center justify-center bg-gradient-to-r from-blue-800 to-purple-500">
             <div className="bg-white p-8 rounded shadow-lg w-96">
                 <h1 className="text-2xl font-bold text-gray-800 mb-4">Table Desk Login</h1>
                 {error && <div className="bg-red-100 text-red-600 p-2 rounded mb-4">{error}</div>}

@@ -74,7 +74,8 @@ async function initializeSchema() {
                 phone_number VARCHAR(15),
                 address TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                is_blocked BOOLEAN DEFAULT FALSE
+                is_blocked BOOLEAN DEFAULT FALSE,
+                balance NUMERIC(10, 2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS supermarkets (
                 supermarket_id SERIAL PRIMARY KEY,
@@ -123,7 +124,8 @@ async function initializeSchema() {
                 subtotal NUMERIC(10, 2) NOT NULL,
                 delivery_fee_share NUMERIC(10, 2),
                 service_fee_share NUMERIC(10, 2),
-                user_total NUMERIC(10, 2)
+                user_total NUMERIC(10, 2),
+                tax_share NUMERIC(10, 2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS payments (
                 payment_id SERIAL PRIMARY KEY,

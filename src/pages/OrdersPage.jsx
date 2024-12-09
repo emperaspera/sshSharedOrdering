@@ -14,10 +14,9 @@ const OrdersPage = () => {
             setError("");
 
             try {
-                const mode = localStorage.getItem("mode"); // Retrieve mode as a string
+                const mode = localStorage.getItem("mode");
                 const user = JSON.parse(localStorage.getItem("user"));
                 const household = JSON.parse(localStorage.getItem("household"));
-
 
                 const householdId = household?.householdId || null;
                 const userId = user?.user_id || null;
@@ -34,12 +33,9 @@ const OrdersPage = () => {
                         ? "http://localhost:5000/api/household-orders"
                         : "http://localhost:5000/api/user-orders";
 
-                // Fetch orders from the backend
                 const response = await fetch(endpoint, {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(requestBody),
                 });
 
@@ -50,7 +46,43 @@ const OrdersPage = () => {
                     return;
                 }
 
-                setOrders(data.orders);
+                console.log("Fetched orders:", data.orders);
+
+                const taxRate = 0.1; // 10% tax
+                const calculatedOrders = data.orders.map((order) => {
+                    // Calculate total cost
+                    const totalItemCost = order.users.reduce(
+                        (sum, user) => sum + user.items.reduce((itemSum, item) => itemSum + item.subtotal, 0),
+                        0
+                    );
+                    const totalCost = totalItemCost + (order.delivery_fee || 0) + (order.service_fee || 0);
+
+                    console.log(`Order ID: ${order.order_id}, Total Item Cost: ${totalItemCost}, Total Cost: ${totalCost}`);
+
+                    const taxFee = parseFloat((totalCost * taxRate).toFixed(2));
+
+                    const updatedUsers = order.users.map((user) => {
+                        const userSubtotal = user.items.reduce((sum, item) => sum + item.subtotal, 0);
+                        const userTaxShare = userSubtotal / totalCost * taxFee;
+
+                        console.log(`User ID: ${user.user_id}, Subtotal: ${userSubtotal}, Tax Share: ${userTaxShare}`);
+
+                        return {
+                            ...user,
+                            tax_share: userTaxShare || 0,
+                        };
+                    });
+
+                    return {
+                        ...order,
+                        total_cost: totalCost,
+                        tax_fee: taxFee || 0,
+                        users: updatedUsers,
+                    };
+                });
+
+                console.log("Calculated orders with tax fees:", calculatedOrders);
+                setOrders(calculatedOrders);
             } catch (err) {
                 console.error("Error fetching orders:", err);
                 setError("There was an error fetching the orders. Please try again.");
@@ -203,24 +235,23 @@ const OrdersPage = () => {
                                                     </div>
 
                                                     {mode === "household" && (
-                                                        <p className="mt-2 text-right font-semibold text-gray-700">
-                                                            User Total: $
-                                                            {user.user_total
-                                                                ? parseFloat(
-                                                                    user.user_total
-                                                                ).toFixed(2)
-                                                                : "0.00"}
+                                                        <p className="text-right text-lg font-bold mt-4">
+                                                            Order Total (Including Tax): $
+                                                            {(parseFloat(order.total_cost || 0) + parseFloat(order.tax_fee || 0)).toFixed(2)}
                                                         </p>
                                                     )}
                                                 </div>
                                             ))}
                                         </div>
                                         <p className="text-right text-lg font-bold mt-4">
-                                            Order Total: $
-                                            {mode === "household"
-                                                ? parseFloat(order.total_cost).toFixed(2)
-                                                : parseFloat(order.users[0].user_total).toFixed(2)}
+                                            Order Total (Including Tax): $
+                                            {(parseFloat(order.total_cost || 0) + parseFloat(order.tax_fee || 0)).toFixed(2)}
                                         </p>
+                                        <div className="flex justify-between text-gray-600">
+                                            <span>Tax Fee:</span>
+                                            <span>${parseFloat(order.tax_fee || 0).toFixed(2)}</span>
+                                        </div>
+
                                     </div>
                                 )}
                             </div>

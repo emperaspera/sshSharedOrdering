@@ -30,6 +30,17 @@ const LoginPage = () => {
             // Store user data in localStorage
             localStorage.setItem("user", JSON.stringify(data.user));
 
+            // Redirect blocked users to the Top-Up Page
+            if (data.user.is_blocked) {
+                navigate("/top-up", {
+                    state: {
+                        message: "Your account is blocked. Please top up to continue.",
+                        prefilledAmount: Math.abs(data.user.balance || 0), // Suggest amount to clear debt
+                    },
+                });
+                return;
+            }
+
             // Determine mode based on household existence
             if (data.household && data.household.household_id) {
                 localStorage.setItem("household", JSON.stringify(data.household));
@@ -39,12 +50,10 @@ const LoginPage = () => {
                 localStorage.removeItem("household");
             }
 
-            console.log("Mode set to:", localStorage.getItem("mode")); // Debugging
-
             // Redirect to main page
             navigate("/main");
         } catch (err) {
-            console.error("Login error:", err); // Debugging
+            console.error("Login error:", err);
             setError("Failed to login. Please try again.");
         }
     };
@@ -52,7 +61,7 @@ const LoginPage = () => {
 
 
     return (
-        <div className="min-h-screen bg-gray-100 flex items-center justify-center">
+        <div className="min-h-screen bg-gradient-to-r from-blue-800 to-green-500 flex items-center justify-center">
             <div className="bg-white p-8 rounded shadow-lg w-96">
                 <h1 className="text-2xl font-bold text-gray-800 mb-4">Login</h1>
                 {error && <div className="bg-red-100 text-red-600 p-2 rounded mb-4">{error}</div>}

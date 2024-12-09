@@ -69,19 +69,26 @@ const ProfileSelectionPage = () => {
 
 
     return (
-        <div className="min-h-screen bg-gray-100 flex flex-col items-center justify-center">
+        <div
+            className="min-h-screen bg-gradient-to-r from-blue-600 to-green-500 flex flex-col items-center justify-center">
+            {/* Profile Selection Card */}
             <div className="bg-white p-6 rounded shadow-lg w-96">
-                <h1 className="text-2xl font-bold mb-4">Select a Profile</h1>
+                <h1 className="text-2xl font-bold mb-4 text-gray-800">Select a Profile</h1>
                 {error && <div className="bg-red-100 text-red-600 p-2 rounded mb-4">{error}</div>}
                 {users.length > 0 ? (
                     <ul className="mb-4">
                         {users.map((user) => (
                             <li
                                 key={user.user_id}
-                                className="py-2 px-4 border-b hover:bg-gray-200 cursor-pointer"
+                                className="py-2 px-4 border-b flex justify-between items-center hover:bg-gray-200 cursor-pointer"
                                 onClick={() => handleUserSelection(user)}
                             >
-                                {user.first_name} {user.last_name}
+                                <span className="text-gray-800">{user.first_name} {user.last_name}</span>
+                                <img
+                                    src={user.profile_picture || "/profile-picture.jpg"} // Placeholder for missing pictures
+                                    alt={`${user.first_name} ${user.last_name}`}
+                                    className="w-10 h-10 rounded-full border border-gray-300"
+                                />
                             </li>
                         ))}
                     </ul>
@@ -90,7 +97,7 @@ const ProfileSelectionPage = () => {
                         <p className="text-gray-500">No users found for this household.</p>
                         <button
                             className="text-gray-500 hover:underline"
-                            onClick={() => handleGoBack()}
+                            onClick={handleGoBack}
                         >
                             Go Back
                         </button>
@@ -98,7 +105,7 @@ const ProfileSelectionPage = () => {
                 )}
                 {selectedUser && (
                     <div>
-                        <h3 className="text-lg font-bold mb-2">
+                        <h3 className="text-lg font-bold mb-2 text-gray-800">
                             Enter PIN for {selectedUser.first_name}
                         </h3>
                         <input
@@ -124,6 +131,14 @@ const ProfileSelectionPage = () => {
                     </div>
                 )}
             </div>
+
+            {/* Go Back Button */}
+            <button
+                onClick={handleGoBack}
+                className="mt-6 px-4 py-2 bg-white text-gray-800 border border-gray-300 rounded-lg shadow-md hover:shadow-lg hover:shadow-white transition-all duration-300"
+            >
+                Go Back
+            </button>
         </div>
     );
 };

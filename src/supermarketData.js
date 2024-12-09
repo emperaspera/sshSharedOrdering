@@ -71,21 +71,65 @@ function generateCategories(supermarketId) {
     const categoryNames = ["Fruits", "Vegetables", "Snacks", "Dairy", "Beverages"];
     return categoryNames.map((categoryName, categoryIndex) => ({
         name: categoryName,
-        items: generateItems(supermarketId, categoryIndex + 1),
+        items: generateItems(supermarketId, categoryIndex + 1, categoryName),
     }));
 }
 
-function generateItems(supermarketId, categoryId) {
-    return Array.from({ length: 15 }, (_, itemIndex) => {
+function generateItems(supermarketId, categoryId, categoryName) {
+    const folder = categoryName.toLowerCase(); // Matches folder names in `public/product-images`
+
+    // Define actual filenames for each category
+    const fileNames = {
+        fruits: [
+            "apple.webp", "banana.webp", "blueberries.webp", "grapes.webp",
+            "kiwi.webp", "lemon.webp", "lime.webp", "mango.webp",
+            "orange.webp", "peach.webp", "pear.webp", "pineapple.webp",
+            "pomegranate.webp", "strawberries.webp", "watermelon.webp",
+        ],
+        beverages: [
+            "beverage-energy.webp", "beverage-sports.webp", "cola.webp",
+            "iced-coffee.webp", "iced-tea-green.webp", "iced-tea-peach.webp",
+            "juice-apple.webp", "juice-carrot.webp", "juice-orange.webp",
+            "juice-pineapple.webp", "lemonade.webp", "milkshake.webp",
+            "smoothie.webp", "water.webp", "water-sparkling.webp",
+        ],
+        dairy: [
+            "butter.webp", "cheese-cheddar.webp", "cheese-cottage.webp",
+            "cheese-cream.webp", "cheese-goat.webp", "cheese-mozzarella.webp",
+            "cheese-parmesan.webp", "ice-cream.webp", "kefir.webp",
+            "milk.webp", "milk-condenced.webp", "sour-cream.webp",
+            "whipped-cream.webp", "yogurt-greek.webp", "yogurt-plain.webp",
+        ],
+        snacks: [
+            "cheese-crackers.webp", "choc-chip-cookies.webp", "corn-chips.webp",
+            "fruit-leather.webp", "granola-bars.webp", "mixed-nuts.webp",
+            "oatmeal-cookies.webp", "pb-crackers.webp", "plain-chips.webp",
+            "popcorn.webp", "rice-cakes.webp", "salted-pretzels.webp",
+            "sesame-sticks.webp", "trail-mix.webp", "vegetable-chips.webp",
+        ],
+        vegetables: [
+            "bell-pepper.webp", "broccoli.webp", "cabbage.webp", "carrot.webp",
+            "cauliflower.jpg", "corn.webp", "cucumber.webp", "garlic.webp",
+            "green-beans.webp", "onion.webp", "potato.webp", "spinach.webp",
+            "sweet-potato.webp", "tomato.webp", "zucchini.webp",
+        ],
+    };
+
+    return fileNames[folder]?.map((fileName, itemIndex) => {
         const id = (supermarketId - 1) * 75 + (categoryId - 1) * 15 + itemIndex + 1; // Unique ID
+        const itemName = fileName.split(".")[0]; // Use filename without extension as the item name
         return {
             id,
-            name: `${categoryId === 1 ? "Fruit" : categoryId === 2 ? "Vegetable" : categoryId === 3 ? "Snack" : categoryId === 4 ? "Dairy" : "Beverage"} ${itemIndex + 1}`,
-            price: parseFloat((1.0 + itemIndex * 0.5).toFixed(2)), // Keep price as a number
-            description: `High-quality ${categoryId === 1 ? "fruit" : categoryId === 2 ? "vegetable" : categoryId === 3 ? "snack" : categoryId === 4 ? "dairy product" : "beverage"} ${itemIndex + 1}.`,
-            image: `https://via.placeholder.com/150x100?text=${categoryId === 1 ? "Fruit" : categoryId === 2 ? "Vegetable" : categoryId === 3 ? "Snack" : categoryId === 4 ? "Dairy" : "Beverage"}+${itemIndex + 1}`,
+            name: capitalizeFirstLetter(itemName.replace(/-/g, " ")), // Make the name more readable
+            price: parseFloat((1.0 + itemIndex * 0.5).toFixed(2)), // Example pricing logic
+            description: `High-quality ${folder} product.`,
+            image: `/public/product-images/${folder}/${fileName}`, // Correct image path
         };
     });
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
 }
 
 export default supermarkets;
