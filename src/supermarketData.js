@@ -66,7 +66,6 @@ const supermarkets = [
         categories: generateCategories(6),
     },
 ];
-
 function generateCategories(supermarketId) {
     const categoryNames = ["Fruits", "Vegetables", "Snacks", "Dairy", "Beverages"];
     return categoryNames.map((categoryName, categoryIndex) => ({
@@ -74,7 +73,6 @@ function generateCategories(supermarketId) {
         items: generateItems(supermarketId, categoryIndex + 1, categoryName),
     }));
 }
-
 function generateItems(supermarketId, categoryId, categoryName) {
     const folder = categoryName.toLowerCase(); // Matches folder names in `public/product-images`
 

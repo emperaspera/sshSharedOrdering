@@ -1,5 +1,7 @@
 import React, { useState } from "react";
+
 import { Link } from "react-router-dom";
+
 import supermarkets from "../supermarketData";
 import Navigation from "../components/Navigation/Navigation.jsx";
 import { calcEuclideanDist } from "../context/GlobalFuncs";
@@ -10,7 +12,7 @@ const MainScreen = () => {
 
     const maxRating = Math.max(...supermarkets.map((s) => s.rating));
     const maxDistance = Math.max(...supermarkets.map((s) => s.distance || 0));
-    
+
     // Calculate distances for all supermarkets
     const supermarketsWithDistances = supermarkets.map((supermarket) => {
         if (household) {
@@ -22,13 +24,15 @@ const MainScreen = () => {
 
     // Function to calculate the "best" score based on rating and distance
     const calculateBestScore = (supermarket, maxRating, maxDistance) => {
-        const ratingWeight = 0.6; 
+
+        const ratingWeight = 0.6;
         const distanceWeight = 0.4;
-    
+
 
         const normalizedRating = supermarket.rating / maxRating;
         const normalizedDistance = 1 - (supermarket.distance / maxDistance);
-    
+
+
         return ratingWeight * normalizedRating + distanceWeight * normalizedDistance;
     };
 
@@ -41,7 +45,9 @@ const MainScreen = () => {
                 return a.rating - b.rating;
             case "distance-low-high":
                 return a.distance - b.distance;
-            case "distance-high-low": 
+
+            case "distance-high-low":
+
                 return b.distance - a.distance;
             case "best":
                 return calculateBestScore(b, maxRating, maxDistance) - calculateBestScore(a, maxRating, maxDistance);
