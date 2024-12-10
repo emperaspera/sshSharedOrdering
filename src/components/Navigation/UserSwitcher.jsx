@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { FaUserCircle } from "react-icons/fa";
+import { useBasket } from "/src/context/BasketContext"; // Import useBasket
 
 const UserSwitcher = ({ householdId }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -7,6 +8,7 @@ const UserSwitcher = ({ householdId }) => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [pin, setPin] = useState("");
     const [error, setError] = useState("");
+    const { clearBasket } = useBasket(); // Access clearBasket function
 
     useEffect(() => {
         console.log("Household from localStorage:", householdId);
@@ -37,21 +39,18 @@ const UserSwitcher = ({ householdId }) => {
         }
     }, [householdId]);
 
-
-
     const toggleProfileMenu = () => {
-        console.log("Profile menu toggled:", !isProfileMenuOpen); // Debugging line
+        console.log("Profile menu toggled:", !isProfileMenuOpen);
         setIsProfileMenuOpen(!isProfileMenuOpen);
     };
 
     const handleSwitchUser = (user) => {
-        console.log("User selected:", user); // Debugging line
+        console.log("User selected:", user);
         setSelectedUser(user);
         setPin(""); // Reset PIN field
         setError(""); // Clear previous errors
         setIsProfileMenuOpen(false);
     };
-
 
     const verifyPinAndSwitch = async () => {
         setError("");
@@ -67,10 +66,13 @@ const UserSwitcher = ({ householdId }) => {
             const data = await response.json();
 
             if (!response.ok) {
-                console.error("PIN verification failed:", data); // Debugging line
+                console.error("PIN verification failed:", data);
                 setError(data.error || "Invalid PIN.");
                 return;
             }
+
+            // Clear the basket before switching users
+            clearBasket();
 
             // Store the complete user details in localStorage and reload
             localStorage.setItem("user", JSON.stringify(data.user));
@@ -81,8 +83,6 @@ const UserSwitcher = ({ householdId }) => {
             setError("Failed to verify PIN. Please try again.");
         }
     };
-
-
 
     return (
         <div className="relative">

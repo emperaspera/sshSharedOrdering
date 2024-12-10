@@ -17,13 +17,12 @@ app.use(cors());
 
 // PostgreSQL Pool Configuration
 const pool = new Pool({
-    user: process.env.DB_USER, // PostgreSQL username
-    host: process.env.DB_HOST, // Hostname
-    database: process.env.DB_NAME,  // Database name
-    password: process.env.DB_PASSWORD, // PostgreSQL password
-    port: process.env.DB_PORT,       // Default port
+    user: "pavl",
+    host: "localhost",
+    database: "ssh",
+    password:"Jktymrf9",
+    port: 5432
 });
-
 
 async function populateDatabase() {
     const client = await pool.connect();
@@ -229,7 +228,7 @@ app.post("/api/register", async (req, res) => {
 
 // 3. Table Desk Login Endpoint
 app.post("/api/table-login", async (req, res) => {
-    const { householdId, pin } = req.body;
+    const { householdId, pin } = req.body; // Get householdId and pin from the request body
 
     if (!householdId || !pin) {
         return res.status(400).json({ error: "Household ID and PIN are required" });
@@ -240,7 +239,7 @@ app.post("/api/table-login", async (req, res) => {
     }
 
     try {
-        // Fetch the household and its hashed PIN
+        // Fetch the household and its hashed PIN, along with the coordinates
         const result = await pool.query(
             "SELECT household_id, pin_password, address, coordinate_x, coordinate_y FROM households WHERE household_id = $1",
             [householdId]
@@ -258,19 +257,7 @@ app.post("/api/table-login", async (req, res) => {
             return res.status(400).json({ error: "Invalid PIN" });
         }
 
-        // Fetch users associated with the household
-        const usersResult = await pool.query(
-            "SELECT user_id, first_name, last_name, email, balance, is_blocked FROM users WHERE household_id = $1",
-            [household_id]
-        );
-
-        const users = usersResult.rows;
-
-        if (users.length === 0) {
-            return res.status(404).json({ error: "No users found in the household." });
-        }
-
-        // Respond with household details and associated users
+        // If the PIN is valid, return success with the household details, including coordinates
         res.status(200).json({
             message: "Login successful",
             mode: "household",
@@ -278,9 +265,8 @@ app.post("/api/table-login", async (req, res) => {
                 householdId: household_id,
                 address,
                 coordinate_x,
-                coordinate_y,
+                coordinate_y, // Include coordinates in the response
             },
-            users,
         });
     } catch (err) {
         console.error("Error during table login:", err);
@@ -715,6 +701,12 @@ app.post("/api/get-user-details", async (req, res) => {
 });
 
 
+
+
+
+
+
+
 // server.js
 app.post("/api/place-order", async (req, res) => {
     const { items, deliveryDate, deliveryFee = 5.0, serviceFee = 2.5, tax, userId, householdId } = req.body;
@@ -729,22 +721,17 @@ app.post("/api/place-order", async (req, res) => {
         await client.query("BEGIN");
 
         // Validate and process items
-        const processedItems = items.map((item) => {
+        const processedItems = items.map(item => {
             if (!item.product_id || isNaN(item.unit_price) || item.unit_price <= 0 || item.quantity <= 0) {
                 throw new Error("Invalid item data.");
             }
             return {
                 product_id: item.product_id,
                 quantity: parseInt(item.quantity, 10),
-                unit_price: parseFloat(item.unit_price).toFixed(2),
-                subtotal: (parseFloat(item.unit_price) * parseInt(item.quantity, 10)).toFixed(2),
+                unit_price: parseFloat(item.unit_price),
+                subtotal: parseFloat(item.unit_price) * parseInt(item.quantity, 10),
             };
         });
-
-        // Format deliveryFee, serviceFee, and tax values to ensure consistency
-        const formattedDeliveryFee = parseFloat(deliveryFee).toFixed(2);
-        const formattedServiceFee = parseFloat(serviceFee).toFixed(2);
-        const formattedTax = parseFloat(tax).toFixed(2);
 
         // Check for an existing order for the same household and delivery date
         let orderId;
@@ -763,16 +750,8 @@ app.post("/api/place-order", async (req, res) => {
 
         // If no existing order, create a new one
         if (!orderId) {
-            const grocerySubtotal = processedItems.reduce((sum, item) => sum + parseFloat(item.subtotal), 0).toFixed(2);
-            console.log("Grocery Subtotal:", grocerySubtotal);
-
-            const totalCost = (
-                parseFloat(grocerySubtotal) +
-                parseFloat(formattedTax) +
-                parseFloat(formattedDeliveryFee) +
-                parseFloat(formattedServiceFee)
-            ).toFixed(2);
-            console.log("Total Cost:", totalCost);
+            const grocerySubtotal = processedItems.reduce((sum, item) => sum + item.subtotal, 0);
+            const totalCost = grocerySubtotal + parseFloat(tax);
 
             // Check user balance
             const userBalanceResult = await client.query(
@@ -782,8 +761,8 @@ app.post("/api/place-order", async (req, res) => {
             if (userBalanceResult.rows.length === 0) throw new Error("User not found.");
             const userBalance = parseFloat(userBalanceResult.rows[0].balance) || 0;
 
-            if (userBalance < parseFloat(totalCost)) {
-                const shortfall = (parseFloat(totalCost) - userBalance).toFixed(2);
+            if (userBalance < totalCost) {
+                const shortfall = (totalCost - userBalance).toFixed(2);
                 await client.query("ROLLBACK");
                 return res.status(400).json({
                     error: "Insufficient balance",
@@ -800,9 +779,9 @@ app.post("/api/place-order", async (req, res) => {
                     householdId || null,
                     !!householdId,
                     totalCost,
-                    formattedDeliveryFee,
-                    formattedServiceFee,
-                    formattedTax,
+                    deliveryFee,
+                    serviceFee,
+                    tax,
                     deliveryDate,
                 ]
             );
@@ -821,7 +800,7 @@ app.post("/api/place-order", async (req, res) => {
             if (existingItemResult.rows.length > 0) {
                 const existingItem = existingItemResult.rows[0];
                 const newQuantity = existingItem.quantity + item.quantity;
-                const newSubtotal = (existingItem.unit_price * newQuantity).toFixed(2);
+                const newSubtotal = existingItem.unit_price * newQuantity;
 
                 await client.query(
                     `UPDATE order_items
@@ -845,12 +824,12 @@ app.post("/api/place-order", async (req, res) => {
              WHERE household_id = $1 AND delivery_date = $2`,
             [householdId, deliveryDate]
         );
-        const uniqueUsers = uniqueUsersResult.rows.map((row) => row.user_id);
+        const uniqueUsers = uniqueUsersResult.rows.map(row => row.user_id);
         const totalUniqueUsers = uniqueUsers.length;
 
         // Recalculate shared fees
-        const sharedDeliveryFee = (parseFloat(formattedDeliveryFee) / totalUniqueUsers).toFixed(2);
-        const sharedServiceFee = (parseFloat(formattedServiceFee) / totalUniqueUsers).toFixed(2);
+        const sharedDeliveryFee = parseFloat(deliveryFee) / totalUniqueUsers;
+        const sharedServiceFee = parseFloat(serviceFee) / totalUniqueUsers;
 
         await client.query(
             `UPDATE order_items
@@ -874,11 +853,6 @@ app.post("/api/place-order", async (req, res) => {
         client.release();
     }
 });
-
-
-
-
-
 
 
 

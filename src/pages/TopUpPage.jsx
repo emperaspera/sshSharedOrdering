@@ -122,8 +122,7 @@ const TopUpPage = () => {
             console.log("Updated Balance After Fetch:", updatedBalance);
     
             if (updatedBalance >= 0) {
-                console.log("Redirecting to the main screen...");
-                setTimeout(() => navigate("/main", { replace: true }), 100);
+                setTopUpMessage("Top-up successful! Redirecting...");
             } else {
                 setTopUpMessage(
                     `Top-up successful! However, you still need to top up $${Math.abs(updatedBalance).toFixed(2)} to unlock your account.`
@@ -133,7 +132,7 @@ const TopUpPage = () => {
             // If there are orderDetails, proceed to place the order
             if (orderDetails) {
                 console.log("Order Details:", orderDetails);
-                const { items, deliveryDate, deliveryFee, serviceFee, tax, total, householdId} = orderDetails;
+                const { items, deliveryDate, deliveryFee, serviceFee, tax, total, householdId } = orderDetails;
     
                 // Ensure all necessary fields are present
                 if (!items || !deliveryDate || !deliveryFee || !serviceFee || !tax) {
@@ -156,7 +155,6 @@ const TopUpPage = () => {
                         userId: user.user_id,
                         householdId,
                     };
-                    
     
                     console.log("Placing Order with Payload:", placeOrderPayload);
     
@@ -165,7 +163,7 @@ const TopUpPage = () => {
                         headers: { "Content-Type": "application/json" },
                         body: JSON.stringify(placeOrderPayload),
                     });
-                    
+    
                     const placeOrderData = await placeOrderResponse.json();
                     console.log(placeOrderData);
                     if (!placeOrderResponse.ok) {
@@ -174,19 +172,21 @@ const TopUpPage = () => {
     
                     console.log("Order placed successfully:", placeOrderData);
                     localStorage.removeItem("basket");
-                    navigate("/main/order-success");
+    
+                    // Delay navigation to ensure the OrderSuccess page displays properly
+                    setTimeout(() => navigate("/main/order-success"), 500);
                 } else {
                     console.warn("Insufficient balance to place the order.");
                     setTopUpMessage(
                         `Top-up successful! However, your balance is insufficient to place this order.`
                     );
                     await updateLocalStorageAfterTopUp(user.user_id);
-                    navigate("/main/account", { replace: true });
+                    setTimeout(() => navigate("/main/account", { replace: true }), 1500);
                 }
             } else {
                 console.log("No order details provided. Redirecting to account page...");
                 await updateLocalStorageAfterTopUp(user.user_id);
-                navigate("/main/account", { replace: true });
+                setTimeout(() => navigate("/main/account", { replace: true }), 1500);
             }
         } catch (error) {
             console.error("Top-up error or order placement error:", error);
@@ -195,6 +195,7 @@ const TopUpPage = () => {
             setIsSubmitting(false);
         }
     };
+    
     
 
 

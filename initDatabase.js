@@ -5,9 +5,9 @@ const { Client } = pg;
 
 // Define Database Credentials in One Place
 const DB_CONFIG = {
-    user: "postgres", // PostgreSQL username
+    user: "pavl", // PostgreSQL username
     host: "localhost", // Hostname
-    password: "your password", // PostgreSQL password (change here only)
+    password: "Jktymrf9", // PostgreSQL password (change here only)
     port: 5432, // Default port
     defaultDatabase: "postgres", // Default "postgres" database
     targetDatabase: "ssh", // Target database
@@ -143,7 +143,9 @@ async function initializeSchema() {
         }
 
         console.log(`Schema initialized successfully for database "${DB_CONFIG.targetDatabase}".`);
-        await populateHouseholds(client); // Populate with test data
+        //Populate test households and users
+        await populateHouseholds(client);
+        await populateUsers(client);
     } catch (error) {
         console.error("Error initializing schema:", error.message);
     } finally {
@@ -177,6 +179,62 @@ async function populateHouseholds(client) {
         console.error("Error populating households:", error.message);
     }
 }
+
+async function populateUsers(client) {
+    try {
+        console.log("Populating test data for users...");
+
+        const testUsers = [
+            // Household 1 users with PIN "1111"
+            { firstName: "John", lastName: "Doe", email: "johndoe@mail.com", password: "johndoe", householdAddress: "123 Pavel St", pin_password: "1111" },
+            { firstName: "Jane", lastName: "Smith", email: "janesmith@mail.com", password: "janesmith", householdAddress: "123 Pavel St", pin_password: "1111" },
+            { firstName: "Jack", lastName: "Brown", email: "jackbrown@mail.com", password: "jackbrown", householdAddress: "123 Pavel St", pin_password: "1111" },
+
+            // Household 2 users with PIN "2222"
+            { firstName: "Emily", lastName: "Davis", email: "emilydavis@mail.com", password: "emilydavis", householdAddress: "456 Emil St", pin_password: "2222" },
+            { firstName: "Ethan", lastName: "White", email: "ethanwhite@mail.com", password: "ethanwhite", householdAddress: "456 Emil St", pin_password: "2222" },
+            { firstName: "Ella", lastName: "Black", email: "ellablack@mail.com", password: "ellablack", householdAddress: "456 Emil St", pin_password: "2222" },
+
+            // Household 3 users with PIN "3333"
+            { firstName: "Michael", lastName: "Green", email: "michaelgreen@mail.com", password: "michaelgreen", householdAddress: "789 Mert St", pin_password: "3333" },
+            { firstName: "Mia", lastName: "Taylor", email: "miataylor@mail.com", password: "miataylor", householdAddress: "789 Mert St", pin_password: "3333" },
+            { firstName: "Matthew", lastName: "Wilson", email: "matthewwilson@mail.com", password: "matthewwilson", householdAddress: "789 Mert St", pin_password: "3333" },
+        ];
+
+        for (const user of testUsers) {
+            // Get the household_id using the address
+            const householdResult = await client.query(
+                `SELECT household_id FROM households WHERE address = $1`,
+                [user.householdAddress]
+            );
+
+            if (householdResult.rows.length === 0) {
+                console.error(`Household with address "${user.householdAddress}" not found.`);
+                continue;
+            }
+
+            const householdId = householdResult.rows[0].household_id;
+
+            // Hash the password and the pin_password
+            const hashedPassword = await bcrypt.hash(user.password, 10);
+            const hashedPin = await bcrypt.hash(user.pin_password, 10);
+
+            // Insert the user
+            await client.query(
+                `INSERT INTO users (household_id, first_name, last_name, email, password_hash, pin_password, balance)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT DO NOTHING`,
+                [householdId, user.firstName, user.lastName, user.email, hashedPassword, hashedPin, 50]
+            );
+        }
+
+        console.log("Test data for users populated successfully.");
+    } catch (error) {
+        console.error("Error populating users:", error.message);
+    }
+}
+
+
 
 
 // Execute the script
