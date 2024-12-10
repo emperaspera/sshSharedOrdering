@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { FaUserCircle } from "react-icons/fa";
 
+// eslint-disable-next-line react/prop-types
 const UserSwitcher = ({ householdId }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [householdUsers, setHouseholdUsers] = useState([]);

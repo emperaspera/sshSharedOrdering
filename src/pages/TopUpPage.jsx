@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 const TopUpPage = () => {
@@ -9,13 +9,8 @@ const TopUpPage = () => {
     const [topUpMessage, setTopUpMessage] = useState("");
     const [topUpError, setTopUpError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [orderDetails, setOrderDetails] = useState(location.state?.orderDetails || null);
-    const [userBalance, setUserBalance] = useState(null);
-
-    const [isRedirecting, setIsRedirecting] = useState(false);
-
-
-
+    const [orderDetails] = useState(location.state?.orderDetails || null);
+    const [, setUserBalance] = useState(null);
     useEffect(() => {
         const user = JSON.parse(localStorage.getItem("user"));
         console.log("User from localStorage:", user);

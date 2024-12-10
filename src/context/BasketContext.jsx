@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 // Create the BasketContext
 const BasketContext = createContext();
 
 // Hook to access the BasketContext
+// eslint-disable-next-line react-refresh/only-export-components
 export const useBasket = () => useContext(BasketContext);
 
 // BasketProvider to wrap the app and provide basket state
+// eslint-disable-next-line react/prop-types
 export const BasketProvider = ({ children }) => {
     const [basket, setBasket] = useState(() => {
         // Load basket from localStorage on initial render

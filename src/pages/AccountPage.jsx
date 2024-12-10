@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from "react";
+import {useCallback, useEffect, useState} from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const AccountPage = () => {
-    const [user, setUser] = useState(null);
+    const [, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
     const [balance, setBalance] = useState(0);
@@ -18,7 +18,7 @@ const AccountPage = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const fetchUserDetails = async () => {
+    const fetchUserDetails = useCallback(async () => {
         setLoading(true);
         setError("");
 
@@ -64,12 +64,11 @@ const AccountPage = () => {
         } finally {
             setLoading(false);
         }
-    };
-
+    }, [alreadyRedirected, navigate]);
 
     useEffect(() => {
         fetchUserDetails();
-    }, [navigate]);
+    }, [fetchUserDetails]);
 
     useEffect(() => {
         console.log("Checking redirection condition for blocked user...");
@@ -99,18 +98,11 @@ const AccountPage = () => {
         }
     }, [navigate]);
 
-
-
-
-
-
-
-
     useEffect(() => {
         if (location.state?.refreshBalance) {
             fetchUserDetails();
         }
-    }, [location.state]);
+    }, [location.state, fetchUserDetails]);
 
     const handleNavigateToOrders = () => {
         localStorage.setItem("navigationSource", "account");

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 const SignupPage = () => {
@@ -8,7 +8,6 @@ const SignupPage = () => {
     const [password, setPassword] = useState("");
     const [pin, setPin] = useState("");
     const [householdId, setHouseholdId] = useState("");
-    const [error, setError] = useState("");
     const navigate = useNavigate();
 
     const handleSignup = async (e) => {

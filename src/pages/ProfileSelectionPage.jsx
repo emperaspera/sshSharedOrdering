@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const ProfileSelectionPage = () => {
@@ -54,6 +54,7 @@ const ProfileSelectionPage = () => {
 
             // Redirect to main page
             navigate("/main");
+            // eslint-disable-next-line no-unused-vars
         } catch (err) {
             setError("Failed to verify PIN. Please try again.");
         }
