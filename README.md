@@ -38,24 +38,24 @@ For testing purposes, the following user and household data has been pre-populat
    **PIN Code:** 1111  
    **Users:**
 
-   - **Name:** John Doe | **Email:** johndoe@mail.com | **Password:** johndoe
-   - **Name:** Jane Smith | **Email:** janesmith@mail.com | **Password:** janesmith
-   - **Name:** Jack Brown | **Email:** jackbrown@mail.com | **Password:** jackbrown
+   - **Name:** John Doe | **Email:** johndoe@mail.com | **Password:** johndoe | **Personal pin:** 1111
+   - **Name:** Jane Smith | **Email:** janesmith@mail.com | **Password:** janesmith | **Personal pin:** 1111
+   - **Name:** Jack Brown | **Email:** jackbrown@mail.com | **Password:** jackbrown | **Personal pin:** 1111
 
 2. **Household ID:** 2  
    **PIN Code:** 2222  
    **Users:**
 
-   - **Name:** Emily Davis | **Email:** emilydavis@mail.com | **Password:** emilydavis
-   - **Name:** Ethan White | **Email:** ethanwhite@mail.com | **Password:** ethanwhite
-   - **Name:** Ella Black | **Email:** ellablack@mail.com | **Password:** ellablack
+   - **Name:** Emily Davis | **Email:** emilydavis@mail.com | **Password:** emilydavis | **Personal pin:** 2222
+   - **Name:** Ethan White | **Email:** ethanwhite@mail.com | **Password:** ethanwhite | **Personal pin:** 2222
+   - **Name:** Ella Black | **Email:** ellablack@mail.com | **Password:** ellablack | **Personal pin:** 2222
 
 3. **Household ID:** 3  
    **PIN Code:** 3333  
    **Users:**
-   - **Name:** Michael Green | **Email:** michaelgreen@mail.com | **Password:** michaelgreen
-   - **Name:** Mia Taylor | **Email:** miataylor@mail.com | **Password:** miataylor
-   - **Name:** Matthew Wilson | **Email:** matthewwilson@mail.com | **Password:** matthewwilson
+   - **Name:** Michael Green | **Email:** michaelgreen@mail.com | **Password:** michaelgreen | **Personal pin:** 3333
+   - **Name:** Mia Taylor | **Email:** miataylor@mail.com | **Password:** miataylor | **Personal pin:** 3333
+   - **Name:** Matthew Wilson | **Email:** matthewwilson@mail.com | **Password:** matthewwilson | **Personal pin:** 3333
 
 ### **Household and User Login**
 
