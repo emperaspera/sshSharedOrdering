@@ -17,11 +17,11 @@ app.use(cors());
 
 // PostgreSQL Pool Configuration
 const pool = new Pool({
-    user: "pavl",
-    host: "localhost",
-    database: "ssh",
-    password:"Jktymrf9",
-    port: 5432
+    user: process.env.DB_USER, // PostgreSQL username
+    host: process.env.DB_HOST, // Hostname
+    database: process.env.DB_NAME,  // Database name
+    password: process.env.DB_PASSWORD, // PostgreSQL password
+    port: process.env.DB_PORT,       // Default port
 });
 
 

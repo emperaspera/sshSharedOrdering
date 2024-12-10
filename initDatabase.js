@@ -5,9 +5,9 @@ const { Client } = pg;
 
 // Define Database Credentials in One Place
 const DB_CONFIG = {
-    user: "pavl", // PostgreSQL username
+    user: "postgres", // PostgreSQL username
     host: "localhost", // Hostname
-    password: "Jktymrf9", // PostgreSQL password (change here only)
+    password: "your password", // PostgreSQL password (change here only)
     port: 5432, // Default port
     defaultDatabase: "postgres", // Default "postgres" database
     targetDatabase: "ssh", // Target database
