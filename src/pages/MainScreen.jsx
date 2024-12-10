@@ -1,5 +1,7 @@
+
 import { useState } from "react";
 import {Link} from "react-router-dom";
+
 import supermarkets from "../supermarketData";
 import Navigation from "../components/Navigation/Navigation.jsx";
 import { calcEuclideanDist } from "../context/GlobalFuncs";
@@ -22,12 +24,14 @@ const MainScreen = () => {
 
     // Function to calculate the "best" score based on rating and distance
     const calculateBestScore = (supermarket, maxRating, maxDistance) => {
+
         const ratingWeight = 0.6;
         const distanceWeight = 0.4;
 
 
         const normalizedRating = supermarket.rating / maxRating;
         const normalizedDistance = 1 - (supermarket.distance / maxDistance);
+
 
         return ratingWeight * normalizedRating + distanceWeight * normalizedDistance;
     };
@@ -41,7 +45,9 @@ const MainScreen = () => {
                 return a.rating - b.rating;
             case "distance-low-high":
                 return a.distance - b.distance;
+
             case "distance-high-low":
+
                 return b.distance - a.distance;
             case "best":
                 return calculateBestScore(b, maxRating, maxDistance) - calculateBestScore(a, maxRating, maxDistance);
@@ -52,9 +58,10 @@ const MainScreen = () => {
 
     return (
         <div>
-            <Navigation/>
+            <Navigation />
             <div className="min-h-screen bg-gray-100 p-6 flex flex-col items-center">
                 <h1 className="text-4xl font-bold text-gray-800 mb-6">Supermarkets</h1>
+
                 {/* Sorting dropdown */}
                 <div className="mb-4">
                     <select
@@ -71,6 +78,7 @@ const MainScreen = () => {
                         )}
                     </select>
                 </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full max-w-6xl mx-auto">
                     {sortedSupermarkets.map((supermarket) => (
                         <Link
