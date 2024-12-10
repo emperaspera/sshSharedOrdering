@@ -40,7 +40,10 @@ const BasketPage = () => {
 
         setIsSubmitting(true);
 
+
+        const household = JSON.parse(localStorage.getItem("household"));
         const user = JSON.parse(localStorage.getItem("user"));
+        const householdId = household?.householdId || user?.household_id || null;
         if (!user || !user.user_id) {
             alert("User information is missing. Please log in again.");
             setIsSubmitting(false);
@@ -63,13 +66,15 @@ const BasketPage = () => {
             console.log("User Balance:", userBalance);
             console.log("Total Required:", totalRequired);
 
+
             if (isNaN(userBalance)) {
                 userBalance = 0; // Handle invalid balance values
             }
 
+
             if (userBalance < totalRequired) {
                 const shortfall = (totalRequired - userBalance).toFixed(2);
-                const householdId = user.household_id || null; // Assuming user data includes household_id
+                console.log("HouseholdId", householdId);
 
                 alert(`Insufficient balance. You need an additional $${shortfall} to proceed.`);
                 navigate("/top-up", {
@@ -114,7 +119,7 @@ const BasketPage = () => {
                 serviceFee: SERVICE_FEE,
                 tax,
                 userId: user.user_id,
-                householdId: user.household_id || null,
+                householdId: householdId,
                 supermarketId: lastVisitedSupermarket,
             };
 
