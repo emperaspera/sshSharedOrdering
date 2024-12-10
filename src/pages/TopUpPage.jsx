@@ -77,119 +77,125 @@ const TopUpPage = () => {
     const handleTopUp = async () => {
         setTopUpMessage("");
         setTopUpError("");
-
+        setIsSubmitting(true);
+    
         const user = JSON.parse(localStorage.getItem("user"));
         if (!user || !user.user_id) {
             setTopUpError("User information is missing. Please log in again.");
+            setIsSubmitting(false);
             return;
         }
-
+    
         const amount = parseFloat(topUpAmount);
-        if (isNaN(amount) || amount <= 0) {
-            setTopUpError("Please enter a valid top-up amount.");
+        if (isNaN(amount) || amount <= 0 || amount > 99999.99) {
+            setTopUpError("Please enter a valid top-up amount (up to $99,999.99).");
+            setIsSubmitting(false);
             return;
         }
-
+    
         if (!/^\d{16}$/.test(cardNumber)) {
             setTopUpError("Card number must be exactly 16 digits.");
+            setIsSubmitting(false);
             return;
         }
-
-        setIsSubmitting(true);
-
+    
         try {
-            console.log("Sending top-up request with:", {
-                userId: user.user_id,
-                amount: amount,
-                cardNumber: cardNumber,
-            });
-
+            console.log("Sending top-up request:", { userId: user.user_id, amount, cardNumber });
             const topUpResponse = await fetch("http://localhost:5000/api/top-up", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                    userId: user.user_id,
-                    amount: amount,
-                    cardNumber: cardNumber,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ userId: user.user_id, amount, cardNumber }),
             });
-
+    
             const topUpData = await topUpResponse.json();
-
-            if (!topUpResponse.ok) {
-                throw new Error(topUpData.error || "Top-up failed.");
-            }
-
+            if (!topUpResponse.ok) throw new Error(topUpData.error || "Top-up failed.");
+    
             setTopUpMessage("Top-up successful!");
             console.log("Updated Balance:", topUpData.updatedBalance);
-
+    
             // Fetch updated balance after top-up
             const updatedBalance = await fetchUpdatedBalance(user.user_id);
-
             if (updatedBalance === null) {
                 throw new Error("Failed to fetch updated balance after top-up.");
             }
-
+    
             console.log("Updated Balance After Fetch:", updatedBalance);
-
+    
             if (updatedBalance >= 0) {
-                console.log("Redirecting to the main screen..."); // Debugging log
+                console.log("Redirecting to the main screen...");
                 setTimeout(() => navigate("/main", { replace: true }), 100);
             } else {
                 setTopUpMessage(
                     `Top-up successful! However, you still need to top up $${Math.abs(updatedBalance).toFixed(2)} to unlock your account.`
                 );
             }
-
+    
             // If there are orderDetails, proceed to place the order
-            if (orderDetails && updatedBalance >= orderDetails.total) {
-                const formattedItems = orderDetails.items.map((item) => ({
-                    product_id: item.id,
-                    quantity: item.quantity,
-                    unit_price: item.price,
-                }));
-
-                const placeOrderPayload = {
-                    items: formattedItems,
-                    deliveryDate: orderDetails.deliveryDate,
-                    deliveryFee: orderDetails.deliveryFee,
-                    serviceFee: orderDetails.serviceFee,
-                    tax: orderDetails.tax,
-                    userId: user.user_id,
-                    householdId: orderDetails.householdId,
-                    supermarketId: orderDetails.supermarketId, // Ensure this is part of orderDetails
-                };
-
-                const placeOrderResponse = await fetch("http://localhost:5000/api/place-order", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                    body: JSON.stringify(placeOrderPayload),
-                });
-
-                const placeOrderData = await placeOrderResponse.json();
-                if (!placeOrderResponse.ok) {
-                    throw new Error(placeOrderData.error || "Failed to place order.");
+            if (orderDetails) {
+                console.log("Order Details:", orderDetails);
+                const { items, deliveryDate, deliveryFee, serviceFee, tax, total, householdId} = orderDetails;
+    
+                // Ensure all necessary fields are present
+                if (!items || !deliveryDate || !deliveryFee || !serviceFee || !tax) {
+                    throw new Error("Order details are incomplete. Cannot place the order.");
                 }
-
-                localStorage.removeItem("basket");
-
-                navigate("/main/order-success");
+    
+                if (updatedBalance >= total) {
+                    const formattedItems = items.map((item) => ({
+                        product_id: item.id,
+                        quantity: item.quantity,
+                        unit_price: item.price,
+                    }));
+    
+                    const placeOrderPayload = {
+                        items: formattedItems,
+                        deliveryDate,
+                        deliveryFee: parseFloat(deliveryFee).toFixed(2),
+                        serviceFee: parseFloat(serviceFee).toFixed(2),
+                        tax: parseFloat(tax).toFixed(2),
+                        userId: user.user_id,
+                        householdId,
+                    };
+                    
+    
+                    console.log("Placing Order with Payload:", placeOrderPayload);
+    
+                    const placeOrderResponse = await fetch("http://localhost:5000/api/place-order", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(placeOrderPayload),
+                    });
+                    
+                    const placeOrderData = await placeOrderResponse.json();
+                    console.log(placeOrderData);
+                    if (!placeOrderResponse.ok) {
+                        throw new Error(placeOrderData.error || "Failed to place order.");
+                    }
+    
+                    console.log("Order placed successfully:", placeOrderData);
+                    localStorage.removeItem("basket");
+                    navigate("/main/order-success");
+                } else {
+                    console.warn("Insufficient balance to place the order.");
+                    setTopUpMessage(
+                        `Top-up successful! However, your balance is insufficient to place this order.`
+                    );
+                    await updateLocalStorageAfterTopUp(user.user_id);
+                    navigate("/main/account", { replace: true });
+                }
             } else {
-                // Redirect back to Account Page
+                console.log("No order details provided. Redirecting to account page...");
                 await updateLocalStorageAfterTopUp(user.user_id);
                 navigate("/main/account", { replace: true });
             }
         } catch (error) {
             console.error("Top-up error or order placement error:", error);
             setTopUpError(error.message || "An error occurred during top-up or order placement.");
+        } finally {
+            setIsSubmitting(false);
         }
-
-        setIsSubmitting(false);
     };
+    
 
 
     return (
