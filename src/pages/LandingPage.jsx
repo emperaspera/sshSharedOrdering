@@ -1,5 +1,5 @@
 import React from "react";
-import {useNavigate} from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Navigation from "../components/Navigation/Navigation.jsx";
 
 const LandingPage = () => {
@@ -7,7 +7,7 @@ const LandingPage = () => {
 
     return (
         <div>
-            <Navigation/>
+            <Navigation />
             <div className="min-h-screen bg-neutral-50 flex flex-col items-center justify-center">
                 {/* Gradient background section */}
                 <div
@@ -38,6 +38,16 @@ const LandingPage = () => {
                             className="h-12 w-64 bg-purple-500 text-white font-medium text-lg rounded-md hover:border hover:border-white hover:shadow-0_4px_8px_0_rgba(255,255,255,0.5) transition"
                         >
                             Table Desk Login
+                        </button>
+                    </div>
+
+                    {/* Developer Courier Page Button */}
+                    <div className="mt-8">
+                        <button
+                            onClick={() => navigate("/courier/orders")}
+                            className="h-12 w-64 bg-red-500 text-white font-medium text-lg rounded-md hover:border hover:border-white hover:shadow-0_4px_8px_0_rgba(255,255,255,0.5) transition"
+                        >
+                            DEV Courier Page
                         </button>
                     </div>
                 </div>
