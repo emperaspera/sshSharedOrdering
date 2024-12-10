@@ -49,40 +49,91 @@ const OrdersPage = () => {
                 console.log("Fetched orders:", data.orders);
 
                 const taxRate = 0.1; // 10% tax
-                const calculatedOrders = data.orders.map((order) => {
-                    // Calculate total cost
-                    const totalItemCost = order.users.reduce(
-                        (sum, user) => sum + user.items.reduce((itemSum, item) => itemSum + item.subtotal, 0),
-                        0
-                    );
-                    const totalCost = totalItemCost + (order.delivery_fee || 0) + (order.service_fee || 0);
 
-                    console.log(`Order ID: ${order.order_id}, Total Item Cost: ${totalItemCost}, Total Cost: ${totalCost}`);
+// Group and calculate orders with tax and updated users
+                const groupedOrders = [];
+                const orderMap = {};
 
-                    const taxFee = parseFloat((totalCost * taxRate).toFixed(2));
+                data.orders.forEach((order) => {
+                    const key = `${order.delivery_date}-${order.household_id}`;
+                    if (!orderMap[key]) {
+                        orderMap[key] = {
+                            ...order,
+                            users: {},
+                        };
+                        groupedOrders.push(orderMap[key]);
+                    }
 
-                    const updatedUsers = order.users.map((user) => {
-                        const userSubtotal = user.items.reduce((sum, item) => sum + item.subtotal, 0);
-                        const userTaxShare = userSubtotal / totalCost * taxFee;
+                    // Group user items and ensure fees are not duplicated for the same user
+                    order.users.forEach((user) => {
+                        if (!orderMap[key].users[user.user_id]) {
+                            orderMap[key].users[user.user_id] = {
+                                ...user,
+                                items: [],
+                                delivery_fee_share: 0,
+                                service_fee_share: 0,
+                            };
+                        }
 
-                        console.log(`User ID: ${user.user_id}, Subtotal: ${userSubtotal}, Tax Share: ${userTaxShare}`);
+                        // Add user's items
+                        orderMap[key].users[user.user_id].items.push(...user.items);
+
+                        // Ensure delivery and service fees are only set once
+                        orderMap[key].users[user.user_id].delivery_fee_share = user.delivery_fee_share;
+                        orderMap[key].users[user.user_id].service_fee_share = user.service_fee_share;
+                    });
+                });
+
+// Calculate tax and updated totals for grouped orders
+                // Calculate tax and updated totals for grouped orders
+                // Calculate tax and updated totals for grouped orders
+                // Calculate tax and updated totals for grouped orders
+                groupedOrders.forEach((order) => {
+                    let grocerySubtotal = 0;
+                    let updatedDeliveryFee = 0;
+                    let updatedServiceFee = 0;
+
+                    // Calculate subtotal and aggregate fees from all users
+                    Object.values(order.users).forEach((user) => {
+                        const userSubtotal = user.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+                        grocerySubtotal += userSubtotal; // Add user's item subtotal to the grocery subtotal
+                        updatedDeliveryFee = Math.max(updatedDeliveryFee, parseFloat(user.delivery_fee_share || 0)); // Use max to prevent summing the same fee for the same user multiple times
+                        updatedServiceFee = Math.max(updatedServiceFee, parseFloat(user.service_fee_share || 0)); // Same logic for service fee
+                    });
+
+                    // Tax is calculated on the grocery subtotal
+                    const taxFee = parseFloat((grocerySubtotal * taxRate).toFixed(2));
+
+                    // Total cost includes grocery subtotal, one delivery fee, one service fee, and tax
+                    const totalCost = grocerySubtotal + updatedDeliveryFee + updatedServiceFee + taxFee;
+
+                    // Assign calculated values to the order
+                    order.grocery_subtotal = grocerySubtotal;
+                    order.tax_fee = taxFee;
+                    order.total_cost = parseFloat(totalCost.toFixed(2)); // Round to 2 decimals
+                    order.updated_delivery_fee = updatedDeliveryFee;
+                    order.updated_service_fee = updatedServiceFee;
+
+                    // Update each user's tax share
+                    order.users = Object.values(order.users).map((user) => {
+                        const userSubtotal = user.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+                        const userTaxShare = (userSubtotal / grocerySubtotal) * taxFee;
 
                         return {
                             ...user,
-                            tax_share: userTaxShare || 0,
+                            tax_share: parseFloat(userTaxShare.toFixed(2)),
                         };
                     });
-
-                    return {
-                        ...order,
-                        total_cost: totalCost,
-                        tax_fee: taxFee || 0,
-                        users: updatedUsers,
-                    };
                 });
 
-                console.log("Calculated orders with tax fees:", calculatedOrders);
-                setOrders(calculatedOrders);
+
+
+
+
+
+
+                console.log("Grouped Orders:", groupedOrders);
+                setOrders(groupedOrders);
             } catch (err) {
                 console.error("Error fetching orders:", err);
                 setError("There was an error fetching the orders. Please try again.");
@@ -237,7 +288,7 @@ const OrdersPage = () => {
                                                     {mode === "household" && (
                                                         <p className="text-right text-lg font-bold mt-4">
                                                             Order Total (Including Tax): $
-                                                            {(parseFloat(order.total_cost || 0) + parseFloat(order.tax_fee || 0)).toFixed(2)}
+                                                            {parseFloat(order.total_cost || 0).toFixed(2)}
                                                         </p>
                                                     )}
                                                 </div>
@@ -245,7 +296,7 @@ const OrdersPage = () => {
                                         </div>
                                         <p className="text-right text-lg font-bold mt-4">
                                             Order Total (Including Tax): $
-                                            {(parseFloat(order.total_cost || 0) + parseFloat(order.tax_fee || 0)).toFixed(2)}
+                                            {parseFloat(order.total_cost || 0).toFixed(2)}
                                         </p>
                                         <div className="flex justify-between text-gray-600">
                                             <span>Tax Fee:</span>

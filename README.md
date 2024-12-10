@@ -30,9 +30,9 @@ Make sure you have the following installed on your machine:
 
 For testing purposes, the following household data has been pre-populated in the database:
 
-- **Household ID:** 1 | **PIN Code:** 1111  
-- **Household ID:** 2 | **PIN Code:** 2222  
-- **Household ID:** 3 | **PIN Code:** 3333  
+- **Household ID:** 1 | **PIN Code:** 1111
+- **Household ID:** 2 | **PIN Code:** 2222
+- **Household ID:** 3 | **PIN Code:** 3333
 
 ### **Household Login**
 Please note that the **Household ID** and **PIN Code** are provided by our company to the accommodations. These credentials are used to log in as a household and access the ordering system.
