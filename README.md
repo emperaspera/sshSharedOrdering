@@ -30,7 +30,6 @@ Make sure you have the following installed on your machine:
 
 For testing purposes, the following household data has been pre-populated in the database:
 
-
 - **Household ID:** 1 | **PIN Code:** 1111
 - **Household ID:** 2 | **PIN Code:** 2222
 - **Household ID:** 3 | **PIN Code:** 3333
