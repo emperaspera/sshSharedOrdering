@@ -1,4 +1,4 @@
-import React, {useEffect, useState} from "react";
+import {useEffect, useState} from "react";
 import {Link} from "react-router-dom"; // Import Link from React Router
 import Logo from "./Logo.jsx";
 import Users from "./Users.jsx";
@@ -9,7 +9,7 @@ import LogoutButton from "./LogoutButton.jsx";
 const Navigation = () => {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [mode, setMode] = useState(null);
-    const [user, setUser] = useState(null);
+    const [, setUser] = useState(null);
     const [household, setHousehold] = useState(null);
 
     useEffect(() => {

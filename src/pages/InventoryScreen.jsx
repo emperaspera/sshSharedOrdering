@@ -1,4 +1,4 @@
-import React, {useState, useEffect} from "react";
+import {useState, useEffect} from "react";
 import {useParams, useNavigate} from "react-router-dom";
 import {useBasket} from "../context/BasketContext";
 import supermarkets from "../supermarketData";
@@ -10,8 +10,8 @@ const InventoryScreen = () => {
     const {basket, addToBasket, setLastVisitedSupermarket} = useBasket();
     const supermarket = supermarkets.find((s) => s.id === parseInt(id));
     const [notification, setNotification] = useState(null);
-    const [isHouseholdLogin, setIsHouseholdLogin] = useState(false);
-    const [householdData, setHouseholdData] = useState(null);
+    const [, setIsHouseholdLogin] = useState(false);
+    const [, setHouseholdData] = useState(null);
 
     const scrollPositions = {};
 

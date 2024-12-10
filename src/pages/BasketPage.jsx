@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { useBasket } from "../context/BasketContext";
 import { useNavigate } from "react-router-dom";
 
@@ -9,7 +9,6 @@ const BasketPage = () => {
         removeFromBasket,
         clearBasket,
         lastVisitedSupermarket,
-        placeOrder,
     } = useBasket();
     const navigate = useNavigate();
     const [deliveryDate, setDeliveryDate] = useState("");

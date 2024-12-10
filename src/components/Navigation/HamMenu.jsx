@@ -1,7 +1,8 @@
-import React, {useState} from 'react';
+import {useState} from 'react';
 import {RxHamburgerMenu} from 'react-icons/rx';
 import {useNavigate} from 'react-router-dom';
 
+// eslint-disable-next-line react/prop-types
 const HamMenu = ({isOpen, toggleMenu}) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isClicked, setIsClicked] = useState(false);
