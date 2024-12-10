@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - Emil_underdev
+      - Emil_new_underdev
   pull_request:
     branches:
       - main
       - Emil_underdev
+      - Emil_new_underdev
 
 jobs:
   build-and-test:
