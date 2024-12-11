@@ -1,13 +1,17 @@
 
 import { useNavigate } from "react-router-dom";
+import {useBasket} from "../../context/BasketContext.jsx";
 
 const LogoutButton = () => {
     const navigate = useNavigate();
+    const { clearBasket } = useBasket();
 
     const handleLogout = () => {
+        clearBasket();
         localStorage.clear();
         alert("Logged out successfully.");
         navigate("/");
+        window.location.reload();
     };
 
     return (

@@ -1,4 +1,5 @@
 import { app, pool, checkAndPopulateDatabase } from './server.js';
+import { ensureDatabaseAndSchema } from './initDatabase.js';
 
 const port = process.env.PORT || 5000;
 let graceTimeout;
@@ -10,6 +11,8 @@ if (process.env.NODE_ENV !== 'test') {
         console.log(`Server running on http://localhost:${port}`);
 
         try {
+            console.log("Ensuring database is initialized...");
+            await ensureDatabaseAndSchema();
             console.log("Performing initial database population check...");
             await checkAndPopulateDatabase({}, {}, () => {});
         } catch (error) {

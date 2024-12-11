@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FaUserCircle } from "react-icons/fa";
-
+import { useBasket } from "/src/context/BasketContext";
 // eslint-disable-next-line react/prop-types
 const UserSwitcher = ({ householdId }) => {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -8,6 +8,7 @@ const UserSwitcher = ({ householdId }) => {
     const [selectedUser, setSelectedUser] = useState(null);
     const [pin, setPin] = useState("");
     const [error, setError] = useState("");
+    const { clearBasket } = useBasket();
 
     useEffect(() => {
         console.log("Household from localStorage:", householdId);
@@ -41,12 +42,12 @@ const UserSwitcher = ({ householdId }) => {
 
 
     const toggleProfileMenu = () => {
-        console.log("Profile menu toggled:", !isProfileMenuOpen); // Debugging line
+        console.log("Profile menu toggled:", !isProfileMenuOpen);
         setIsProfileMenuOpen(!isProfileMenuOpen);
     };
 
     const handleSwitchUser = (user) => {
-        console.log("User selected:", user); // Debugging line
+        console.log("User selected:", user);
         setSelectedUser(user);
         setPin(""); // Reset PIN field
         setError(""); // Clear previous errors
@@ -72,6 +73,8 @@ const UserSwitcher = ({ householdId }) => {
                 setError(data.error || "Invalid PIN.");
                 return;
             }
+
+            clearBasket();
 
             // Store the complete user details in localStorage and reload
             localStorage.setItem("user", JSON.stringify(data.user));

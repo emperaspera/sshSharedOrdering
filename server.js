@@ -104,7 +104,7 @@ let lastPopulationTime = null;
 // Middleware to check if the database needs to be repopulated
 async function checkAndPopulateDatabase(req, res, next) {
     const now = new Date();
-    const oneMinute = 24 * 60 * 60 * 1000; // 1 minute in milliseconds
+    const oneMinute = 24 * 60 * 60 * 1000;
 
     if (!lastPopulationTime || now - lastPopulationTime > oneMinute) {
         // Update lastPopulationTime immediately to prevent multiple requests from triggering
@@ -246,7 +246,7 @@ app.post("/api/table-login", async (req, res) => {
     try {
         // Fetch the household and its hashed PIN
         const result = await pool.query(
-            "SELECT household_id, pin_password, address FROM households WHERE household_id = $1",
+            "SELECT household_id, pin_password, address, coordinate_x, coordinate_y FROM households WHERE household_id = $1",
             [householdId]
         );
 
@@ -254,7 +254,7 @@ app.post("/api/table-login", async (req, res) => {
             return res.status(400).json({error: "Household not found"});
         }
 
-        const {household_id, pin_password, address} = result.rows[0];
+        const { household_id, pin_password, address, coordinate_x, coordinate_y } = result.rows[0];
 
         // Compare the entered PIN with the stored hashed PIN
         const isPinValid = await bcrypt.compare(pin, pin_password);
@@ -266,7 +266,12 @@ app.post("/api/table-login", async (req, res) => {
         res.status(200).json({
             message: "Login successful",
             mode: "household",
-            household: {householdId: household_id, address},
+            household: {
+                householdId: household_id,
+                address,
+                coordinate_x,
+                coordinate_y,},
+
         });
     } catch (err) {
         console.error("Error during table login:", err);
@@ -1090,4 +1095,4 @@ app.post("/api/household-orders", async (req, res) => {
 //     }
 // });
 
-export { pool};
+export { pool, checkAndPopulateDatabase};
