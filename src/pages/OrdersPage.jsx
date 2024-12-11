@@ -115,15 +115,24 @@ const OrdersPage = () => {
                     order.updated_service_fee = updatedServiceFee;
 
                     // Update each user's tax share
+                    // Calculate each user's total including their share of the tax
                     order.users = Object.values(order.users).map((user) => {
-                        const userSubtotal = user.items.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+                        const userSubtotal = user.items.reduce(
+                            (sum, item) => sum + parseFloat(item.unit_price * item.quantity || 0),
+                            0
+                        );
+
                         const userTaxShare = (userSubtotal / grocerySubtotal) * taxFee;
+                        const userTotal = userSubtotal + user.delivery_fee_share + user.service_fee_share + userTaxShare;
 
                         return {
                             ...user,
+                            subtotal: userSubtotal.toFixed(2),
                             tax_share: parseFloat(userTaxShare.toFixed(2)),
+                            total_cost: parseFloat(userTotal.toFixed(2)), // User's total including fees and tax
                         };
                     });
+
                 });
 
 
@@ -232,77 +241,69 @@ const OrdersPage = () => {
                                             {mode === "household" && (
                                                 <h3 className="text-lg font-semibold">Users</h3>
                                             )}
-                                            {order.users.map((user) => (
-                                                <div
-                                                    key={user.user_id}
-                                                    className="bg-white p-4 rounded-md shadow-md mt-4"
-                                                >
-                                                    {mode === "household" && (
-                                                        <h4 className="font-semibold text-gray-800">
-                                                            {user.first_name} {user.last_name}
-                                                        </h4>
-                                                    )}
-                                                    <ul className="mt-2 space-y-2">
-                                                        {user.items.map((item) => (
-                                                            <li
-                                                                key={item.product_id}
-                                                                className="flex justify-between"
-                                                            >
-                                                                <span>
-                                                                    {item.quantity}x{" "}
-                                                                    {item.product_name}
-                                                                </span>
-                                                                <span>
-                                                                    $
-                                                                    {parseFloat(
-                                                                        item.unit_price
-                                                                    ).toFixed(2)}
-                                                                </span>
-                                                            </li>
-                                                        ))}
-                                                    </ul>
+                                            {order.users.map((user) => {
+                                                const userItemSubtotal = user.items.reduce(
+                                                    (sum, item) => sum + parseFloat(item.unit_price) * item.quantity,
+                                                    0
+                                                );
+                                                const userTotal = userItemSubtotal
+                                                    + parseFloat(user.delivery_fee_share || 0)
+                                                    + parseFloat(user.service_fee_share || 0);
 
-                                                    <div className="flex justify-between text-gray-600">
-                                                        <span>Delivery Fee Share:</span>
-                                                        <span>
-                                                            $
-                                                            {user.delivery_fee_share
-                                                                ? parseFloat(
-                                                                    user.delivery_fee_share
-                                                                ).toFixed(2)
-                                                                : "0.00"}
-                                                        </span>
-                                                    </div>
-                                                    <div className="flex justify-between text-gray-600">
-                                                        <span>Service Fee Share:</span>
-                                                        <span>
-                                                            $
-                                                            {user.service_fee_share
-                                                                ? parseFloat(
-                                                                    user.service_fee_share
-                                                                ).toFixed(2)
-                                                                : "0.00"}
-                                                        </span>
-                                                    </div>
+                                                return (
+                                                    <div
+                                                        key={user.user_id}
+                                                        className="bg-white p-4 rounded-md shadow-md mt-4"
+                                                    >
+                                                        {mode === "household" && (
+                                                            <h4 className="font-semibold text-gray-800">
+                                                                {user.first_name} {user.last_name}
+                                                            </h4>
+                                                        )}
+                                                        <ul className="mt-2 space-y-2">
+                                                            {user.items.map((item) => (
+                                                                <li
+                                                                    key={item.product_id}
+                                                                    className="flex justify-between"
+                                                                >
+                                                                    <span>
+                                                                        {item.quantity}x {item.product_name}
+                                                                    </span>
+                                                                    <span>
+                                                                        ${parseFloat(item.unit_price * item.quantity).toFixed(2)}
+                                                                    </span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
 
-                                                    {mode === "household" && (
+
+                                                        <div className="flex justify-between text-gray-600">
+                                                            <span>Delivery Fee Share:</span>
+                                                            <span>
+                    ${parseFloat(user.delivery_fee_share || 0).toFixed(2)}
+                </span>
+                                                        </div>
+                                                        <div className="flex justify-between text-gray-600">
+                                                            <span>Service Fee Share:</span>
+                                                            <span>
+                    ${parseFloat(user.service_fee_share || 0).toFixed(2)}
+                </span>
+                                                        </div>
                                                         <p className="text-right text-lg font-bold mt-4">
-                                                            Order Total (Including Tax): $
-                                                            {parseFloat(order.total_cost || 0).toFixed(2)}
+                                                            User Total (Excluding Tax): ${userTotal.toFixed(2)}
                                                         </p>
-                                                    )}
-                                                </div>
-                                            ))}
+                                                    </div>
+                                                );
+                                            })}
+
                                         </div>
                                         <p className="text-right text-lg font-bold mt-4">
-                                            Order Total (Including Tax): $
-                                            {parseFloat(order.total_cost || 0).toFixed(2)}
+                                            Order Total (Including Tax): ${parseFloat(order.total_cost || 0).toFixed(2)}
                                         </p>
                                         <div className="flex justify-between text-gray-600">
                                             <span>Tax Fee:</span>
                                             <span>${parseFloat(order.tax_fee || 0).toFixed(2)}</span>
                                         </div>
-
                                     </div>
                                 )}
                             </div>
