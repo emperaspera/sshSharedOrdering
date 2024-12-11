@@ -15,7 +15,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
-
+    env:
+      NODE_ENV: test
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3

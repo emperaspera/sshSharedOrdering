@@ -3,6 +3,7 @@ import globals from 'globals'
 import react from 'eslint-plugin-react'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
+import jest from 'eslint-plugin-jest';
 
 export default [
   { ignores: ['dist'] },
@@ -13,6 +14,7 @@ export default [
       globals: {
         ...globals.browser,
         ...globals.node,
+        ...globals.jest,
       },
       parserOptions: {
         ecmaVersion: 'latest',
@@ -25,6 +27,7 @@ export default [
       react,
       'react-hooks': reactHooks,
       'react-refresh': reactRefresh,
+      jest,
     },
     rules: {
       "no-unused-vars": "warn",
@@ -37,6 +40,7 @@ export default [
         'warn',
         { allowConstantExport: true },
       ],
+      ...jest.configs.recommended.rules,
     },
   },
   {
@@ -46,6 +50,13 @@ export default [
     },
     rules: {
       'no-console': 'off',
+    },
+  },
+  {
+    files: ['**/__tests__/**/*.js', '**/*.test.js'],
+    plugins: { jest },
+    rules: {
+      ...jest.configs.recommended.rules,
     },
   },
 ]
