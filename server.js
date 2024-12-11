@@ -7,23 +7,23 @@ import dotenv from "dotenv";
 import supermarkets from "./src/supermarketData.js"; // OUR VIRTUAL API WHICH POPULATED DATABASE
 
 dotenv.config();
-const { Pool } = pg;
-const app = express();
-const port = 5000;
 
-// Middleware
+const {Pool} = pg;
+const pool = new Pool({
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
+});
+
+export const app = express();
 app.use(bodyParser.json());
 app.use(cors());
 
-// PostgreSQL Pool Configuration
-const pool = new Pool({
-    user: process.env.DB_USER, // PostgreSQL username
-    host: process.env.DB_HOST, // Hostname
-    database: process.env.DB_NAME,  // Database name
-    password: process.env.DB_PASSWORD, // PostgreSQL password
-    port: process.env.DB_PORT,       // Default port
+app.get("/api/test", (req, res) => {
+    res.send("Server is running!");
 });
-
 
 async function populateDatabase() {
     const client = await pool.connect();
@@ -100,6 +100,7 @@ async function populateDatabase() {
 let lastPopulationTime = null;
 //let isPopulating = false; // Flag to track population in progress
 
+
 // Middleware to check if the database needs to be repopulated
 async function checkAndPopulateDatabase(req, res, next) {
     const now = new Date();
@@ -117,9 +118,11 @@ async function checkAndPopulateDatabase(req, res, next) {
             console.error(`[${new Date().toISOString()}] Error during database population:`, error);
         } finally {
             // Add a short grace period to avoid frequent repopulations
+
             setTimeout(() => {
                 console.log(`[${new Date().toISOString()}] Grace period ended.`);
-            }, 5000); // Grace period of 5 seconds
+            }, 5000);
+
         }
     }
 
@@ -127,14 +130,15 @@ async function checkAndPopulateDatabase(req, res, next) {
 }
 
 // Apply middleware globally
-app.use(checkAndPopulateDatabase);
-
+if (process.env.NODE_ENV !== 'test') {
+    app.use(checkAndPopulateDatabase);
+}
 // 1. Login Endpoint
 app.post("/api/login", async (req, res) => {
-    const { email, password } = req.body;
+    const {email, password} = req.body;
 
     if (!email || !password) {
-        return res.status(400).json({ error: "Email and password are required" });
+        return res.status(400).json({error: "Email and password are required"});
     }
 
     try {
@@ -142,7 +146,7 @@ app.post("/api/login", async (req, res) => {
         const result = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
 
         if (result.rows.length === 0) {
-            return res.status(400).json({ error: "User not found" });
+            return res.status(400).json({error: "User not found"});
         }
 
         const user = result.rows[0];
@@ -150,7 +154,7 @@ app.post("/api/login", async (req, res) => {
         // Compare the entered password with the stored hashed password
         const validPassword = await bcrypt.compare(password, user.password_hash);
         if (!validPassword) {
-            return res.status(400).json({ error: "Invalid password" });
+            return res.status(400).json({error: "Invalid password"});
         }
 
         // Fetch the household information if available
@@ -181,33 +185,33 @@ app.post("/api/login", async (req, res) => {
         });
     } catch (err) {
         console.error("Error during user login:", err);
-        res.status(500).json({ error: "Server error" });
+        res.status(500).json({error: "Server error"});
     }
 });
 
 // 2. Registration Endpoint
 app.post("/api/register", async (req, res) => {
-    const { firstName, lastName, email, password, pin, householdId } = req.body;
+    const {firstName, lastName, email, password, pin, householdId} = req.body;
 
     if (!firstName || !lastName || !email || !password || !pin || !householdId) {
-        return res.status(400).json({ error: "All fields are required" });
+        return res.status(400).json({error: "All fields are required"});
     }
 
     if (!/^\d{4}$/.test(pin)) {
-        return res.status(400).json({ error: "PIN must be exactly 4 digits." });
+        return res.status(400).json({error: "PIN must be exactly 4 digits."});
     }
 
     try {
         // Check if the email is already registered
         const emailCheck = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
         if (emailCheck.rows.length > 0) {
-            return res.status(400).json({ error: "Email already in use" });
+            return res.status(400).json({error: "Email already in use"});
         }
 
         // Check if the household exists
         const householdCheck = await pool.query("SELECT * FROM households WHERE household_id = $1", [householdId]);
         if (householdCheck.rows.length === 0) {
-            return res.status(400).json({ error: "Invalid Household ID" });
+            return res.status(400).json({error: "Invalid Household ID"});
         }
 
         // Hash the password and PIN
@@ -220,23 +224,23 @@ app.post("/api/register", async (req, res) => {
             [householdId, firstName, lastName, email, hashedPassword, hashedPin]
         );
 
-        res.status(201).json({ message: "Registration successful" });
+        res.status(201).json({message: "Registration successful"});
     } catch (err) {
         console.error("Error during user registration:", err);
-        res.status(500).json({ error: "Server error" });
+        res.status(500).json({error: "Server error"});
     }
 });
 
 // 3. Table Desk Login Endpoint
 app.post("/api/table-login", async (req, res) => {
-    const { householdId, pin } = req.body; // Get householdId and pin from the request body
+    const {householdId, pin} = req.body; // Get householdId and pin from the request body
 
     if (!householdId || !pin) {
-        return res.status(400).json({ error: "Household ID and PIN are required" });
+        return res.status(400).json({error: "Household ID and PIN are required"});
     }
 
     if (!/^\d{4}$/.test(pin)) {
-        return res.status(400).json({ error: "PIN must be exactly 4 digits." });
+        return res.status(400).json({error: "PIN must be exactly 4 digits."});
     }
 
     try {
@@ -247,34 +251,34 @@ app.post("/api/table-login", async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(400).json({ error: "Household not found" });
+            return res.status(400).json({error: "Household not found"});
         }
 
-        const { household_id, pin_password, address } = result.rows[0];
+        const {household_id, pin_password, address} = result.rows[0];
 
         // Compare the entered PIN with the stored hashed PIN
         const isPinValid = await bcrypt.compare(pin, pin_password);
         if (!isPinValid) {
-            return res.status(400).json({ error: "Invalid PIN" });
+            return res.status(400).json({error: "Invalid PIN"});
         }
 
         // If the PIN is valid, return success with the household details
         res.status(200).json({
             message: "Login successful",
             mode: "household",
-            household: { householdId: household_id, address },
+            household: {householdId: household_id, address},
         });
     } catch (err) {
         console.error("Error during table login:", err);
-        res.status(500).json({ error: "Server error" });
+        res.status(500).json({error: "Server error"});
     }
 });
 
 app.post("/api/update", async (req, res) => {
-    const { userId, field, value } = req.body;
+    const {userId, field, value} = req.body;
 
     if (!userId || !field || value === undefined) {
-        return res.status(400).json({ error: "Invalid request data." });
+        return res.status(400).json({error: "Invalid request data."});
     }
 
     try {
@@ -298,35 +302,35 @@ app.post("/api/update", async (req, res) => {
             query = "UPDATE users SET pin_password = $1 WHERE user_id = $2";
             params = [hashedPin, userId];
         } else {
-            return res.status(400).json({ error: "Invalid field to update." });
+            return res.status(400).json({error: "Invalid field to update."});
         }
 
         // Execute the query
         await pool.query(query, params);
 
-        res.json({ message: `${field} updated successfully.` });
+        res.json({message: `${field} updated successfully.`});
     } catch (error) {
         console.error("Error updating user:", error);
-        res.status(500).json({ error: "Internal server error." });
+        res.status(500).json({error: "Internal server error."});
     }
 });
 
 // Top-up Balance
 // server.js
 app.post("/api/top-up", async (req, res) => {
-    const { userId, amount, cardNumber } = req.body;
+    const {userId, amount, cardNumber} = req.body;
 
     // Basic Validation
     if (!userId || amount === undefined || !cardNumber) {
-        return res.status(400).json({ error: "Missing required fields." });
+        return res.status(400).json({error: "Missing required fields."});
     }
 
     if (typeof amount !== "number" || isNaN(amount) || amount <= 0) {
-        return res.status(400).json({ error: "Invalid amount." });
+        return res.status(400).json({error: "Invalid amount."});
     }
 
     if (!/^\d{16}$/.test(cardNumber)) {
-        return res.status(400).json({ error: "Invalid card number. Must be 16 digits." });
+        return res.status(400).json({error: "Invalid card number. Must be 16 digits."});
     }
 
     const client = await pool.connect();
@@ -377,15 +381,11 @@ app.post("/api/top-up", async (req, res) => {
     } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error during top-up:", error);
-        res.status(500).json({ error: "Internal server error during top-up." });
+        res.status(500).json({error: "Internal server error during top-up."});
     } finally {
         client.release();
     }
 });
-
-
-
-
 
 
 // app.post("/api/get-user-balance", async (req, res) => {
@@ -410,7 +410,7 @@ app.post("/api/top-up", async (req, res) => {
 
 
 app.get('/api/user-balance/:userId', async (req, res) => {
-    const { userId } = req.params;
+    const {userId} = req.params;
 
     console.log(`[USER BALANCE] Received request with userId: ${userId}`);
 
@@ -421,7 +421,7 @@ app.get('/api/user-balance/:userId', async (req, res) => {
 
         if (result.rows.length === 0) {
             console.log(`[USER BALANCE] No user found with userId: ${userId}`);
-            return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({error: 'User not found'});
         }
 
         const user = result.rows[0];
@@ -432,25 +432,22 @@ app.get('/api/user-balance/:userId', async (req, res) => {
         console.log(`[USER BALANCE] Parsed balance: ${balance}`);
 
         // Send the response
-        res.json({ balance });
+        res.json({balance});
     } catch (error) {
         console.error(`[USER BALANCE] Error fetching balance for userId ${userId}:`, error);
-        res.status(500).json({ error: 'Internal Server Error' });
+        res.status(500).json({error: 'Internal Server Error'});
     }
 });
-
 
 
 // Deduct Payment
 
 
-
-
 app.post("/api/deduct-payment", async (req, res) => {
-    const { userId, orderId, amount } = req.body;
+    const {userId, orderId, amount} = req.body;
 
     if (!userId || typeof amount !== "number") {
-        return res.status(400).json({ error: "Missing required fields." });
+        return res.status(400).json({error: "Missing required fields."});
     }
 
     try {
@@ -465,18 +462,16 @@ app.post("/api/deduct-payment", async (req, res) => {
             throw new Error("Failed to record payment.");
         }
 
-        res.status(200).json({ message: "Payment deducted successfully.", paymentId: paymentResult.rows[0].payment_id });
+        res.status(200).json({message: "Payment deducted successfully.", paymentId: paymentResult.rows[0].payment_id});
     } catch (error) {
         console.error("Error deducting payment:", error);
-        res.status(500).json({ error: "Internal server error during payment deduction." });
+        res.status(500).json({error: "Internal server error during payment deduction."});
     }
 });
 
 
-
-
 app.get("/api/household/:householdId/users", async (req, res) => {
-    const { householdId } = req.params;
+    const {householdId} = req.params;
 
     try {
         const result = await pool.query(
@@ -485,21 +480,21 @@ app.get("/api/household/:householdId/users", async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: "No users found for this household." });
+            return res.status(404).json({error: "No users found for this household."});
         }
 
-        res.json({ users: result.rows });
+        res.json({users: result.rows});
     } catch (err) {
         console.error("Error fetching users:", err);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 app.post("/api/user-orders", async (req, res) => {
-    const { userId } = req.body;
+    const {userId} = req.body;
 
     if (!userId) {
-        return res.status(400).json({ error: "User ID is required" });
+        return res.status(400).json({error: "User ID is required"});
     }
 
     try {
@@ -517,7 +512,7 @@ app.post("/api/user-orders", async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: "No orders found for this user." });
+            return res.status(404).json({message: "No orders found for this user."});
         }
 
         // Group orders by order_id to group items properly
@@ -560,20 +555,19 @@ app.post("/api/user-orders", async (req, res) => {
             users: Object.values(order.users),
         }));
 
-        res.json({ orders });
+        res.json({orders});
     } catch (error) {
         console.error("Error fetching user orders:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 
-
 app.post("/api/verify-user-pin", async (req, res) => {
-    const { userId, pin } = req.body;
+    const {userId, pin} = req.body;
 
     if (!/^\d{4}$/.test(pin)) {
-        return res.status(400).json({ error: "Invalid PIN. Must be exactly 4 digits." });
+        return res.status(400).json({error: "Invalid PIN. Must be exactly 4 digits."});
     }
 
     try {
@@ -584,7 +578,7 @@ app.post("/api/verify-user-pin", async (req, res) => {
         );
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({error: "User not found"});
         }
 
         const user = result.rows[0];
@@ -592,7 +586,7 @@ app.post("/api/verify-user-pin", async (req, res) => {
         // Verify the PIN
         const isPinValid = await bcrypt.compare(pin, user.pin_password);
         if (!isPinValid) {
-            return res.status(400).json({ error: "Invalid PIN" });
+            return res.status(400).json({error: "Invalid PIN"});
         }
 
         // Send success response with complete user details
@@ -608,7 +602,7 @@ app.post("/api/verify-user-pin", async (req, res) => {
         });
     } catch (err) {
         console.error("Error verifying PIN:", err);
-        res.status(500).json({ error: "Server error" });
+        res.status(500).json({error: "Server error"});
     }
 });
 
@@ -620,13 +614,13 @@ app.get("/api/test", (req, res) => {
 
 // Add this to your server.js
 app.get("/api/user/:userId", async (req, res) => {
-    const { userId } = req.params;
+    const {userId} = req.params;
 
     try {
         const result = await pool.query("SELECT * FROM users WHERE user_id = $1", [userId]);
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({error: "User not found"});
         }
 
         const user = result.rows[0];
@@ -644,19 +638,19 @@ app.get("/api/user/:userId", async (req, res) => {
         });
     } catch (error) {
         console.error("Error fetching user data:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 
 app.post("/api/get-user-details", async (req, res) => {
-    const { userId } = req.body;
+    const {userId} = req.body;
 
     console.log(`[GET USER DETAILS] Received request with userId: ${userId}`);
 
     if (!userId) {
         console.error(`[GET USER DETAILS] Error: Missing userId in request`);
-        return res.status(400).json({ error: "User ID is required" });
+        return res.status(400).json({error: "User ID is required"});
     }
 
     try {
@@ -666,7 +660,7 @@ app.post("/api/get-user-details", async (req, res) => {
 
         if (userResult.rows.length === 0) {
             console.error(`[GET USER DETAILS] Error: User with userId ${userId} not found`);
-            return res.status(404).json({ error: "User not found" });
+            return res.status(404).json({error: "User not found"});
         }
 
         const user = userResult.rows[0];
@@ -691,24 +685,18 @@ app.post("/api/get-user-details", async (req, res) => {
     } catch (error) {
         // Log unexpected errors
         console.error(`[GET USER DETAILS] Error while fetching user details:`, error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 
-
-
-
-
-
-
 // server.js
 app.post("/api/place-order", async (req, res) => {
-    const { items, deliveryDate, deliveryFee = 5.0, serviceFee = 2.5, tax, userId, householdId } = req.body;
+    const {items, deliveryDate, deliveryFee = 5.0, serviceFee = 2.5, tax, userId, householdId} = req.body;
     console.log("Received Payload:", req.body);
 
     if (!items || !items.length || !deliveryDate || !userId) {
-        return res.status(400).json({ error: "Invalid order details." });
+        return res.status(400).json({error: "Invalid order details."});
     }
 
     const client = await pool.connect();
@@ -836,21 +824,15 @@ app.post("/api/place-order", async (req, res) => {
 
         await client.query("COMMIT");
         console.log(`Order placed successfully with ID: ${orderId}`);
-        return res.status(200).json({ message: "Order placed successfully!", orderId });
+        return res.status(200).json({message: "Order placed successfully!", orderId});
     } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error placing order:", error.message);
-        return res.status(500).json({ error: "Failed to place order.", details: error.message });
+        return res.status(500).json({error: "Failed to place order.", details: error.message});
     } finally {
         client.release();
     }
 });
-
-
-
-
-
-
 
 
 app.get("/api/courier-orders", async (req, res) => {
@@ -870,7 +852,7 @@ app.get("/api/courier-orders", async (req, res) => {
         `);
 
         if (result.rows.length === 0) {
-            return res.status(200).json({ orders: [] });
+            return res.status(200).json({orders: []});
         }
 
         // Group by order_id
@@ -911,20 +893,19 @@ app.get("/api/courier-orders", async (req, res) => {
             users: Object.values(order.users),
         }));
 
-        res.json({ orders });
+        res.json({orders});
     } catch (error) {
         console.error("Error fetching courier orders:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 
-
 app.post("/api/complete-delivery", async (req, res) => {
-    const { orderId } = req.body;
+    const {orderId} = req.body;
 
     if (!orderId) {
-        return res.status(400).json({ error: "Order ID is required." });
+        return res.status(400).json({error: "Order ID is required."});
     }
 
     const client = await pool.connect();
@@ -943,13 +924,13 @@ app.post("/api/complete-delivery", async (req, res) => {
 
         if (orderResult.rows.length === 0) {
             await client.query("ROLLBACK");
-            return res.status(404).json({ error: "Order not found." });
+            return res.status(404).json({error: "Order not found."});
         }
 
-        const { household_id, delivery_date, status } = orderResult.rows[0];
+        const {household_id, delivery_date, status} = orderResult.rows[0];
         if (status !== "Pending") {
             await client.query("ROLLBACK");
-            return res.status(400).json({ error: "Order not in a state to complete delivery." });
+            return res.status(400).json({error: "Order not in a state to complete delivery."});
         }
 
         // Fetch related orders for the same household and delivery date
@@ -966,11 +947,11 @@ app.post("/api/complete-delivery", async (req, res) => {
 
         // Process each order
         for (const order of relatedOrders) {
-            const { user_id, delivery_fee_share, service_fee_share, balance, is_blocked } = order;
+            const {user_id, delivery_fee_share, service_fee_share, balance, is_blocked} = order;
 
             if (is_blocked) {
                 await client.query("ROLLBACK");
-                return res.status(403).json({ error: `User ID ${user_id} is blocked.` });
+                return res.status(403).json({error: `User ID ${user_id} is blocked.`});
             }
 
             const totalFeeToDeduct = parseFloat(delivery_fee_share || 0) + parseFloat(service_fee_share || 0);
@@ -1000,32 +981,22 @@ app.post("/api/complete-delivery", async (req, res) => {
         );
 
         await client.query("COMMIT");
-        return res.status(200).json({ message: "Delivery completed successfully." });
+        return res.status(200).json({message: "Delivery completed successfully."});
     } catch (error) {
         await client.query("ROLLBACK");
         console.error("Error completing delivery:", error);
-        return res.status(500).json({ error: "Internal server error." });
+        return res.status(500).json({error: "Internal server error."});
     } finally {
         client.release();
     }
 });
 
 
-
-
-
-
-
-
-
-
-
-
 app.post("/api/household-orders", async (req, res) => {
-    const { householdId, deliveryDate } = req.body;
+    const {householdId, deliveryDate} = req.body;
 
     if (!householdId) {
-        return res.status(400).json({ error: "Household ID is required." });
+        return res.status(400).json({error: "Household ID is required."});
     }
 
     try {
@@ -1048,7 +1019,7 @@ app.post("/api/household-orders", async (req, res) => {
         const result = await pool.query(query, queryParams);
 
         if (result.rows.length === 0) {
-            return res.status(404).json({ message: "No orders found for this household." });
+            return res.status(404).json({message: "No orders found for this household."});
         }
 
         // Grouping the orders by order_id to combine users for the same delivery date
@@ -1098,24 +1069,25 @@ app.post("/api/household-orders", async (req, res) => {
             users: Object.values(order.users),
         }));
 
-        res.json({ orders });
+        res.json({orders});
     } catch (error) {
         console.error("Error fetching household orders:", error);
-        res.status(500).json({ error: "Internal server error" });
+        res.status(500).json({error: "Internal server error"});
     }
 });
 
 
+// // Start the server
+// const server = app.listen(port, async () => {
+//     console.log(`Server running on http://localhost:${port}`);
+//
+//     // Trigger database population during server startup
+//     try {
+//         console.log("Performing initial database population check...");
+//         await checkAndPopulateDatabase({}, {}, () => {});
+//     } catch (error) {
+//         console.error("Error during initial database population check:", error);
+//     }
+// });
 
-// Start the server
-app.listen(port, async () => {
-    console.log(`Server running on http://localhost:${port}`);
-
-    // Trigger database population during server startup
-    try {
-        console.log("Performing initial database population check...");
-        await checkAndPopulateDatabase({}, {}, () => {});
-    } catch (error) {
-        console.error("Error during initial database population check:", error);
-    }
-});
+export { pool};
