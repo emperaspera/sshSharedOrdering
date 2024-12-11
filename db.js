@@ -5,14 +5,27 @@ dotenv.config();
 
 const { Pool } = pg;
 
-// PostgreSQL Pool Configuration
-const pool = new Pool({
-    user: process.env.DB_USER, // PostgreSQL username
-    host: process.env.DB_HOST, // Hostname
-    database: process.env.DB_NAME, // Database name
-    password: process.env.DB_PASSWORD, // PostgreSQL password
-    port: process.env.DB_PORT, // Default port
-});
+let pool; // Declare the pool variable
 
-// Export the pool to be used in other parts of the application
-export { pool };
+const initializePool = (dbCredentials) => {
+    if (!pool) {
+        pool = new Pool({
+            ...dbCredentials,
+            database: dbCredentials.database || process.env.DB_NAME, // Use dynamic or .env value
+        });
+    }
+    return pool;
+};
+
+// Default pool initialization using environment variables
+if (!pool) {
+    pool = new Pool({
+        user: process.env.DB_USER,
+        host: process.env.DB_HOST,
+        database: process.env.DB_NAME,
+        password: process.env.DB_PASSWORD,
+        port: process.env.DB_PORT,
+    });
+}
+
+export { pool, initializePool };

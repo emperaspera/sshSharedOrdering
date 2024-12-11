@@ -1,20 +1,19 @@
 import express from "express";
-import bcrypt from "bcrypt";
 import bodyParser from "body-parser";
 import cors from "cors";
 import pg from "pg";
-import dotenv from "dotenv";
-import supermarkets from "./src/supermarketData.js"; // OUR VIRTUAL API WHICH POPULATED DATABASE
+import bcrypt from "bcrypt";
+import supermarkets from "./src/supermarketData.js";
 
-dotenv.config();
+const { Pool } = pg;
 
-const {Pool} = pg;
+// Use environment variables now that they are guaranteed to be loaded
 const pool = new Pool({
-    user: "postgres",
-    host: "localhost",
-    database: "ssh",
-    password:"1234567",
-    port: 5432
+    user: process.env.DB_USER,
+    host: process.env.DB_HOST,
+    database: process.env.DB_NAME,
+    password: String(process.env.DB_PASSWORD),
+    port: process.env.DB_PORT,
 });
 
 export const app = express();
@@ -24,6 +23,7 @@ app.use(cors());
 app.get("/api/test", (req, res) => {
     res.send("Server is running!");
 });
+
 
 async function populateDatabase() {
     const client = await pool.connect();
@@ -98,8 +98,6 @@ async function populateDatabase() {
 }
 
 let lastPopulationTime = null;
-//let isPopulating = false; // Flag to track population in progress
-
 
 // Middleware to check if the database needs to be repopulated
 async function checkAndPopulateDatabase(req, res, next) {
@@ -107,26 +105,18 @@ async function checkAndPopulateDatabase(req, res, next) {
     const oneMinute = 24 * 60 * 60 * 1000;
 
     if (!lastPopulationTime || now - lastPopulationTime > oneMinute) {
-        // Update lastPopulationTime immediately to prevent multiple requests from triggering
         lastPopulationTime = now;
         console.log(`[${now.toISOString()}] Starting database population...`);
 
         try {
-            await populateDatabase(); // Populate database
+            await populateDatabase();
             console.log(`[${new Date().toISOString()}] Database population completed.`);
         } catch (error) {
             console.error(`[${new Date().toISOString()}] Error during database population:`, error);
-        } finally {
-            // Add a short grace period to avoid frequent repopulations
-
-            setTimeout(() => {
-                console.log(`[${new Date().toISOString()}] Grace period ended.`);
-            }, 5000);
-
         }
     }
 
-    if (next) next(); // Proceed to the next middleware or route handler
+    if (next) next();
 }
 
 // Apply middleware globally
@@ -1095,4 +1085,4 @@ app.post("/api/household-orders", async (req, res) => {
 //     }
 // });
 
-export { pool, checkAndPopulateDatabase};
+export {pool, checkAndPopulateDatabase};
