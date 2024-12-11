@@ -13,6 +13,7 @@ import ProfileSelectionPage from "./pages/ProfileSelectionPage";
 import OrdersPage from "./pages/OrdersPage.jsx";
 import CourierOrdersPage from "./pages/CourierOrdersPage.jsx";
 import TopUpPage from "./pages/TopUpPage.jsx";
+import NotFoundPage from "./pages/NotFoundPage"; // Import the Not Found Page
 
 const App = () => {
     return (
@@ -36,6 +37,9 @@ const App = () => {
                     <Route path="/main/basket" element={<BasketPage />} />
                     <Route path="/main/order-success" element={<OrderSuccess />} />
                     <Route path="/top-up" element={<TopUpPage />} />
+
+                    {/* 404 Not Found Route */}
+                    <Route path="*" element={<NotFoundPage />} />
                 </Routes>
             </Router>
         </BasketProvider>

@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useState} from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 const AccountPage = () => {
@@ -71,22 +71,15 @@ const AccountPage = () => {
     }, [fetchUserDetails]);
 
     useEffect(() => {
-        console.log("Checking redirection condition for blocked user...");
-
         const user = JSON.parse(localStorage.getItem("user"));
 
         if (!user) {
-            console.warn("No user found, redirecting to login...");
             navigate("/login");
             return;
         }
 
         if (user.is_blocked && !localStorage.getItem("alreadyRedirected")) {
             const amountToUnblock = Math.abs(user.balance || 0);
-
-            console.log("User is blocked, redirecting to Top-Up...");
-
-            // Prevent multiple redirects by storing in localStorage
             localStorage.setItem("alreadyRedirected", "true");
 
             navigate("/top-up", {
@@ -116,16 +109,12 @@ const AccountPage = () => {
             return;
         }
 
-        console.log("Navigating to Top-Up with defaultAmount: 10");
         navigate("/top-up", {
-            state: { prefilledAmount: 10 }, // Pass necessary data
+            state: { prefilledAmount: 10 },
         });
     };
 
-
     const handleUpdate = async (field, value) => {
-        // Check if the value has changed
-
         try {
             const user = JSON.parse(localStorage.getItem("user"));
 
@@ -145,13 +134,12 @@ const AccountPage = () => {
                 throw new Error(data.error || "Failed to update.");
             }
 
-            fetchUserDetails(); // Refresh user details after update
+            fetchUserDetails();
         } catch (error) {
             console.error("Error updating details:", error);
             alert(error.message || "An error occurred.");
         }
     };
-
 
     const handlePasswordChange = () => {
         if (password !== confirmPassword) {
@@ -194,7 +182,6 @@ const AccountPage = () => {
             </button>
             <h1 className="text-3xl font-bold mb-6">My Account</h1>
 
-            {/* Profile Picture Section */}
             <div className="bg-white text-gray-800 p-6 rounded-lg shadow-lg flex items-center gap-6">
                 <img
                     src="/public/profile-picture.jpg"
@@ -203,13 +190,13 @@ const AccountPage = () => {
                 />
                 <div>
                     <button
-                        className="px-4 py-2 rounded-lg text-white bg-blue-500 hover:bg-gradient-to-r hover:from-blue-600 hover:to-green-500 transition-all duration-300"
+                        className="text-white bg-blue-500 px-6 py-2 rounded-lg shadow-md hover:bg-blue-600 transition focus:ring-4 focus:ring-blue-300"
                         onClick={() => alert("Update Profile Picture functionality")}
                     >
                         Update Picture
                     </button>
                     <button
-                        className="px-4 py-2 rounded-lg text-white bg-red-500 hover:bg-gradient-to-r hover:from-red-500 hover:to-purple-500 transition-all duration-300 ml-2"
+                        className="text-white bg-red-500 px-6 py-2 rounded-lg shadow-md hover:bg-red-600 transition focus:ring-4 focus:ring-red-300 ml-2"
                         onClick={() => alert("Delete Profile Picture functionality")}
                     >
                         Delete Picture
@@ -217,7 +204,6 @@ const AccountPage = () => {
                 </div>
             </div>
 
-            {/* User Information Section */}
             <div className="bg-white text-gray-800 p-6 rounded-lg shadow-lg mt-6">
                 <h2 className="text-xl font-semibold mb-4">User Information</h2>
                 <div className="mb-4">
@@ -281,7 +267,6 @@ const AccountPage = () => {
                 )}
             </div>
 
-            {/* Manage Account Section */}
             <div className="bg-white text-gray-800 p-6 rounded-lg shadow-lg mt-6">
                 <h2 className="text-xl font-semibold mb-4">Manage Account</h2>
                 <div className="mb-4">
@@ -301,7 +286,8 @@ const AccountPage = () => {
                         onChange={(e) => setConfirmPassword(e.target.value)}
                     />
                     <button
-                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-green-500 transition-all duration-300 mt-4"
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300 mt-4"
+
                         onClick={handlePasswordChange}
                     >
                         Update Password
@@ -324,7 +310,7 @@ const AccountPage = () => {
                         onChange={(e) => setConfirmPin(e.target.value)}
                     />
                     <button
-                        className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-gradient-to-r hover:from-blue-600 hover:to-green-500 transition-all duration-300 mt-4"
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300 mt-4"
                         onClick={handlePinChange}
                     >
                         Update PIN
@@ -332,7 +318,6 @@ const AccountPage = () => {
                 </div>
             </div>
 
-            {/* Account Balance & Orders Section */}
             <div className="bg-white text-gray-800 p-6 rounded-lg shadow-lg mt-6">
                 <h2 className="text-xl font-semibold mb-4">Account Balance & Orders</h2>
                 <p className="mb-4">
@@ -341,14 +326,14 @@ const AccountPage = () => {
                 <div className="flex gap-4">
                     <button
                         onClick={handleNavigateToTopUp}
-                        className="px-6 py-3 bg-green-500 text-white rounded-lg shadow-lg transition relative overflow-hidden group"
+                        className="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-700 transition duration-300 mt-4"
                     >
                         <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-500 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
                         <span className="relative z-10">Top Up</span>
                     </button>
                     <button
                         onClick={handleNavigateToOrders}
-                        className="px-6 py-3 bg-blue-500 text-white rounded-lg shadow-lg transition relative overflow-hidden group"
+                        className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition duration-300 mt-4"
                     >
                         <span className="absolute inset-0 bg-gradient-to-r from-blue-600 to-green-500 transform scale-x-0 origin-left group-hover:scale-x-100 transition-transform duration-500 ease-in-out"></span>
                         <span className="relative z-10">View Orders</span>
