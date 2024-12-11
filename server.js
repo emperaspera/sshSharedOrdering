@@ -2,7 +2,7 @@ import express from "express";
 import bodyParser from "body-parser";
 import cors from "cors";
 import pg from "pg";
-import bcrypt from "bcrypt";
+import bcrypt from "bcryptjs";
 import supermarkets from "./src/supermarketData.js";
 
 const { Pool } = pg;
