@@ -39,7 +39,6 @@ const BasketPage = () => {
 
         setIsSubmitting(true);
 
-
         const household = JSON.parse(localStorage.getItem("household"));
         const user = JSON.parse(localStorage.getItem("user"));
         const householdId = household?.householdId || user?.household_id || null;
@@ -54,7 +53,6 @@ const BasketPage = () => {
         const totalRequired = grocerySubtotal + deliveryFee + SERVICE_FEE + tax;
 
         try {
-            console.log("Fetching user balance...");
             const balanceResponse = await fetch(`http://localhost:5000/api/user-balance/${user.user_id}`);
             if (!balanceResponse.ok) {
                 throw new Error("Failed to fetch user balance.");
@@ -62,18 +60,12 @@ const BasketPage = () => {
             const balanceData = await balanceResponse.json();
             let userBalance = parseFloat(balanceData.balance);
 
-            console.log("User Balance:", userBalance);
-            console.log("Total Required:", totalRequired);
-
-
             if (isNaN(userBalance)) {
                 userBalance = 0; // Handle invalid balance values
             }
 
-
             if (userBalance < totalRequired) {
                 const shortfall = (totalRequired - userBalance).toFixed(2);
-                console.log("HouseholdId", householdId);
 
                 alert(`Insufficient balance. You need an additional $${shortfall} to proceed.`);
                 navigate("/top-up", {
@@ -87,7 +79,7 @@ const BasketPage = () => {
                             serviceFee: SERVICE_FEE,
                             tax,
                             userId: user.user_id,
-                            householdId: householdId, // Include householdId if available
+                            householdId: householdId,
                         },
                     },
                 });
@@ -95,20 +87,8 @@ const BasketPage = () => {
                 return;
             }
 
-            // Proceed to place order
-            // const orderDetails = {
-            //     items: basket,
-            //     total: calculateTotal(),
-            //     deliveryDate,
-            //     deliveryFee,
-            //     serviceFee: SERVICE_FEE,
-            //     tax,
-            //     userId: user.user_id,
-            //     householdId: user.household_id || null, // Include householdId
-            // };
-
             const payload = {
-                items: basket.map(item => ({
+                items: basket.map((item) => ({
                     product_id: item.id,
                     quantity: item.quantity,
                     unit_price: item.price,
@@ -121,9 +101,6 @@ const BasketPage = () => {
                 householdId: householdId,
                 supermarketId: lastVisitedSupermarket,
             };
-
-
-            console.log("Payload for placeOrder:", payload);
 
             const response = await fetch("http://localhost:5000/api/place-order", {
                 method: "POST",
@@ -139,7 +116,6 @@ const BasketPage = () => {
                 navigate("/main/order-success");
             } else {
                 const errorData = await response.json();
-                console.error("Error placing order:", errorData);
                 alert(errorData.error || "Failed to place order. Please try again.");
             }
         } catch (error) {
@@ -156,7 +132,7 @@ const BasketPage = () => {
                 <h1 className="text-3xl font-bold">Your Basket is Empty</h1>
                 <button
                     onClick={() => navigate("/main")}
-                    className="mt-4 bg-blue-500 text-white px-4 py-2 rounded-lg"
+                    className="mt-4 text-white bg-blue-500 px-6 py-2 rounded-lg shadow-md hover:bg-blue-600 transition focus:ring-4 focus:ring-blue-300"
                 >
                     Back to Supermarket
                 </button>
@@ -169,63 +145,63 @@ const BasketPage = () => {
             <h1 className="text-4xl font-bold text-center mb-8">Your Cart ({basket.length} items)</h1>
             <table className="w-full border-collapse bg-white rounded-lg shadow-lg">
                 <thead>
-                <tr className="bg-gray-200 text-gray-700">
-                    <th className="text-left p-4">Item</th>
-                    <th className="text-right p-4">Price</th>
-                    <th className="text-center p-4">Quantity</th>
-                    <th className="text-right p-4">Total</th>
-                    <th className="text-center p-4">Action</th>
-                </tr>
+                    <tr className="bg-gray-200 text-gray-700">
+                        <th className="text-left p-4">Item</th>
+                        <th className="text-right p-4">Price</th>
+                        <th className="text-center p-4">Quantity</th>
+                        <th className="text-right p-4">Total</th>
+                        <th className="text-center p-4">Action</th>
+                    </tr>
                 </thead>
                 <tbody>
-                {basket.map((item) => (
-                    <tr key={item.id} className="border-t">
-                        <td className="p-4 flex items-center space-x-4">
-                            <img
-                                src={item.image}
-                                alt={item.name}
-                                className="w-16 h-16 object-cover rounded-md"
-                            />
-                            <div>
-                                <h3 className="font-semibold text-lg">{item.name}</h3>
-                                {item.estimatedDelivery && (
-                                    <p className="text-sm text-orange-500">
-                                        Estimated Ship Date: {item.estimatedDelivery}
-                                    </p>
-                                )}
-                            </div>
-                        </td>
-                        <td className="p-4 text-right text-lg">${item.price.toFixed(2)}</td>
-                        <td className="p-4 text-center">
-                            <div className="inline-flex items-center border rounded">
+                    {basket.map((item) => (
+                        <tr key={item.id} className="border-t">
+                            <td className="p-4 flex items-center space-x-4">
+                                <img
+                                    src={item.image}
+                                    alt={item.name}
+                                    className="w-16 h-16 object-cover rounded-md"
+                                />
+                                <div>
+                                    <h3 className="font-semibold text-lg">{item.name}</h3>
+                                    {item.estimatedDelivery && (
+                                        <p className="text-sm text-orange-500">
+                                            Estimated Ship Date: {item.estimatedDelivery}
+                                        </p>
+                                    )}
+                                </div>
+                            </td>
+                            <td className="p-4 text-right text-lg">${item.price.toFixed(2)}</td>
+                            <td className="p-4 text-center">
+                                <div className="inline-flex items-center border rounded">
+                                    <button
+                                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                                        className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-l"
+                                    >
+                                        -
+                                    </button>
+                                    <span className="px-4">{item.quantity}</span>
+                                    <button
+                                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                                        className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-r"
+                                    >
+                                        +
+                                    </button>
+                                </div>
+                            </td>
+                            <td className="p-4 text-right text-lg">
+                                ${(item.price * item.quantity).toFixed(2)}
+                            </td>
+                            <td className="p-4 text-center">
                                 <button
-                                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-l"
+                                    onClick={() => removeFromBasket(item.id)}
+                                    className="text-white bg-red-500 px-4 py-2 rounded-lg shadow-md hover:bg-red-600 transition focus:ring-4 focus:ring-red-300"
                                 >
-                                    -
+                                    Remove
                                 </button>
-                                <span className="px-4">{item.quantity}</span>
-                                <button
-                                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                                    className="px-3 py-1 bg-gray-200 hover:bg-gray-300 rounded-r"
-                                >
-                                    +
-                                </button>
-                            </div>
-                        </td>
-                        <td className="p-4 text-right text-lg">
-                            ${(item.price * item.quantity).toFixed(2)}
-                        </td>
-                        <td className="p-4 text-center">
-                            <button
-                                onClick={() => removeFromBasket(item.id)}
-                                className="bg-red-500 text-white px-3 py-1 rounded-lg"
-                            >
-                                Remove
-                            </button>
-                        </td>
-                    </tr>
-                ))}
+                            </td>
+                        </tr>
+                    ))}
                 </tbody>
             </table>
             <div className="mt-8">
@@ -266,13 +242,13 @@ const BasketPage = () => {
                     onClick={() =>
                         navigate(lastVisitedSupermarket ? `/main/inventory/${lastVisitedSupermarket}` : "/main")
                     }
-                    className="bg-blue-500 text-white px-4 py-2 rounded-lg"
+                    className="text-white bg-blue-500 px-6 py-2 rounded-lg shadow-md hover:bg-blue-600 transition focus:ring-4 focus:ring-blue-300"
                 >
                     Continue Shopping
                 </button>
                 <button
                     onClick={handleCheckout}
-                    className={`bg-green-500 text-white px-4 py-2 rounded-lg ${
+                    className={`text-white bg-green-500 px-6 py-2 rounded-lg shadow-md hover:bg-green-600 transition focus:ring-4 focus:ring-green-300 ${
                         isSubmitting ? "opacity-50" : ""
                     }`}
                     disabled={isSubmitting}
