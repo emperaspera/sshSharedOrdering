@@ -1,4 +1,3 @@
-// index.js
 import fs from "fs";
 import readlineSync from "readline-sync";
 import dotenv from "dotenv";
