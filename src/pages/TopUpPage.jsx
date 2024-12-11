@@ -130,8 +130,8 @@ const TopUpPage = () => {
             console.log("Updated Balance After Fetch:", updatedBalance);
 
             if (updatedBalance >= 0) {
+                setTopUpMessage("Top-up successful! Redirecting...");
                 console.log("Redirecting to the main screen..."); // Debugging log
-                setTimeout(() => navigate("/main", { replace: true }), 100);
             } else {
                 setTopUpMessage(
                     `Top-up successful! However, you still need to top up $${Math.abs(updatedBalance).toFixed(2)} to unlock your account.`
@@ -171,12 +171,11 @@ const TopUpPage = () => {
                 }
 
                 localStorage.removeItem("basket");
-
-                navigate("/main/order-success");
+                setTimeout(() => navigate("/main/order-success"), 500);
             } else {
                 // Redirect back to Account Page
                 await updateLocalStorageAfterTopUp(user.user_id);
-                navigate("/main/account", { replace: true });
+                setTimeout(() => navigate("/main/order-success"), 500);
             }
         } catch (error) {
             console.error("Top-up error or order placement error:", error);

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import {useNavigate} from "react-router-dom";
 
 const CourierOrdersPage = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const navigate = useNavigate();
 
     const fetchOrders = async () => {
         setLoading(true);
@@ -103,6 +105,12 @@ const CourierOrdersPage = () => {
 
     return (
         <div className="p-6">
+            <button
+                onClick={() => navigate(-1)}
+                className="mb-6 text-black hover:underline"
+            >
+                &larr; Go Back
+            </button>
             <h1 className="text-3xl font-bold mb-6">Pending Delivery Orders</h1>
             <div className="space-y-4">
                 {orders.map((order) => {

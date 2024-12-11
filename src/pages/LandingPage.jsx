@@ -40,6 +40,14 @@ const LandingPage = () => {
                             Table Desk Login
                         </button>
                     </div>
+                    <div className="mt-8">
+                        <button
+                            onClick={() => navigate("/courier/orders")}
+                            className="h-12 w-64 bg-red-500 text-white font-medium text-lg rounded-md hover:border hover:border-white hover:shadow-0_4px_8px_0_rgba(255,255,255,0.5) transition"
+                        >
+                            DEV Courier Page
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
