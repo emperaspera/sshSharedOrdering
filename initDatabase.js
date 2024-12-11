@@ -1,44 +1,42 @@
 import pg from "pg";
 import bcrypt from "bcrypt";
 
+
 const { Client } = pg;
 
 // Define Database Credentials in One Place
 const DB_CONFIG = {
-    user: "postgres", // PostgreSQL username
-    host: "localhost", // Hostname
-    password: "your password", // PostgreSQL password (change here only)
-    port: 5432, // Default port
     defaultDatabase: "postgres", // Default "postgres" database
     targetDatabase: "ssh", // Target database
 };
 
 async function isDatabaseEmpty(client) {
     try {
-        // Check only essential tables, not products
         const tableCheckQueries = [
-            `SELECT COUNT(*) FROM households`,
-            `SELECT COUNT(*) FROM users`,
+            `SELECT COUNT(*) AS count FROM households`,
+            `SELECT COUNT(*) AS count FROM users`,
         ];
 
         for (const query of tableCheckQueries) {
             const result = await client.query(query);
-            if (parseInt(result.rows[0].count, 10) > 0) {
-                return false; // Database is not empty
+            const count = parseInt(result.rows[0].count, 10);
+            console.log(`Table check result: ${count} records found.`);
+            if (count > 0) {
+                return false; // not empty
             }
         }
 
-        return true; // Database is empty
+        return true; // empty
     } catch (error) {
-        console.error("Error checking if database is empty:", error.message);
+        console.error("Error checking if database is empty. Query failed:", error.message);
         throw error;
     }
 }
 
 
-async function ensureDatabaseAndSchema() {
+async function ensureDatabaseAndSchema(dbCredentials) {
     const client = new Client({
-        ...DB_CONFIG,
+        ...dbCredentials,
         database: DB_CONFIG.defaultDatabase, // Connect to the default "postgres" database
     });
 
@@ -59,7 +57,7 @@ async function ensureDatabaseAndSchema() {
         }
 
         // Now initialize the schema in the target database
-        await initializeSchema();
+        await initializeSchema(dbCredentials);
 
     } catch (error) {
         console.error("Error ensuring database and schema:", error.message);
@@ -68,9 +66,9 @@ async function ensureDatabaseAndSchema() {
     }
 }
 
-async function initializeSchema() {
+async function initializeSchema(dbCredentials) {
     const client = new Client({
-        ...DB_CONFIG,
+        ...dbCredentials,
         database: DB_CONFIG.targetDatabase, // Connect to the target database
     });
 
