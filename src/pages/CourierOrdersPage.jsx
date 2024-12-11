@@ -146,7 +146,7 @@ const CourierOrdersPage = () => {
                                     <ul className="mt-2 list-disc ml-5">
                                         {user.items.map((item) => (
                                             <li key={item.product_id}>
-                                                {item.quantity}x {item.product_name} - ${item.unit_price.toFixed(2)}
+                                                {item.quantity}x {item.product_name} - ${(item.unit_price*item.quantity).toFixed(2)}
                                             </li>
                                         ))}
                                     </ul>

@@ -1,13 +1,15 @@
 import pg from "pg";
 import bcrypt from "bcrypt";
+import dotenv from "dotenv";
 
+dotenv.config();
 
 const { Client } = pg;
 
-// Define Database Credentials in One Place
+// Define Database Configuration
 const DB_CONFIG = {
-    defaultDatabase: "postgres", // Default "postgres" database
-    targetDatabase: "ssh", // Target database
+    defaultDatabase: "postgres",
+    targetDatabase: process.env.DB_NAME || "ssh",
 };
 
 async function isDatabaseEmpty(client) {
@@ -22,19 +24,25 @@ async function isDatabaseEmpty(client) {
             const count = parseInt(result.rows[0].count, 10);
             console.log(`Table check result: ${count} records found.`);
             if (count > 0) {
-                return false; // not empty
+                return false; // Not empty
             }
         }
 
-        return true; // empty
+        return true; // Empty
     } catch (error) {
-        console.error("Error checking if database is empty. Query failed:", error.message);
+        console.error("Error checking if database is empty:", error.message);
         throw error;
     }
 }
 
+async function ensureDatabaseAndSchema() {
+    const dbCredentials = {
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+    };
 
-async function ensureDatabaseAndSchema(dbCredentials) {
     const client = new Client({
         ...dbCredentials,
         database: DB_CONFIG.defaultDatabase, // Connect to the default "postgres" database
@@ -56,17 +64,31 @@ async function ensureDatabaseAndSchema(dbCredentials) {
             console.log(`Database "${DB_CONFIG.targetDatabase}" already exists.`);
         }
 
-        // Now initialize the schema in the target database
-        await initializeSchema(dbCredentials);
-
+        // Initialize the schema in the target database
+        console.log("Initializing schema...");
+        await initializeSchema(); // Switch to target database to set up schema
     } catch (error) {
-        console.error("Error ensuring database and schema:", error.message);
+        if (error.message.includes("CREATE DATABASE")) {
+            console.error(
+                "Error creating database. Ensure your PostgreSQL user has sufficient privileges to create databases."
+            );
+        } else {
+            console.error("Error ensuring database and schema:", error.message);
+        }
+        throw error;
     } finally {
         await client.end();
     }
 }
 
-async function initializeSchema(dbCredentials) {
+async function initializeSchema() {
+    const dbCredentials = {
+        user: process.env.DB_USER,
+        password: String(process.env.DB_PASSWORD), 
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+    };
+
     const client = new Client({
         ...dbCredentials,
         database: DB_CONFIG.targetDatabase, // Connect to the target database
@@ -134,7 +156,7 @@ async function initializeSchema(dbCredentials) {
                 status VARCHAR(20) DEFAULT 'Pending',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 delivery_date DATE NOT NULL,
-                tax numeric(10,2) DEFAULT 0
+                tax NUMERIC(10,2) DEFAULT 0
             )`,
             `CREATE TABLE IF NOT EXISTS order_items (
                 item_id SERIAL PRIMARY KEY,
@@ -173,6 +195,7 @@ async function initializeSchema(dbCredentials) {
         }
     } catch (error) {
         console.error("Error initializing schema:", error.message);
+        throw error;
     } finally {
         await client.end();
     }
