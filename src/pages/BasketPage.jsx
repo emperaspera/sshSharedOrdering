@@ -119,6 +119,7 @@ const BasketPage = () => {
                 alert(errorData.error || "Failed to place order. Please try again.");
             }
         } catch (error) {
+            console.error("Error during checkout:", error);
             alert("There was an error processing your order. Please try again.");
         }
 

@@ -1,7 +1,6 @@
-import React from 'react';
 
 /// SOURCE: https://uiverse.io/ahmedyasserdev/funny-treefrog-48 -Mert
-
+// eslint-disable-next-line react/prop-types
 function Input({ value, onChange }) {
     return (
         <form className='relative form' onSubmit={(e) => e.preventDefault()}>
