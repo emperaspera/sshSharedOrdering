@@ -6,7 +6,7 @@
 
 1. Install **Node.js**:
    - [Download and Install Node.js](https://nodejs.org/)
-2. Install **npm**:
+2. Install **npm** along with **readline-sync**:
    - npm comes bundled with Node.js. Verify installation by running:
      ```bash
      node -v
