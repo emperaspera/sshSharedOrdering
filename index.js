@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from "fs"; 
 import readlineSync from "readline-sync";
 import dotenv from "dotenv";
 import { ensureDatabaseAndSchema } from "./initDatabase.js";
@@ -15,15 +15,21 @@ async function envSetup() {
         console.error("Password cannot be empty.");
         process.exit(1);
     }
-    const host = readlineSync.question("Enter your PostgreSQL host (default: localhost): ") || "localhost";
-    const dbPort = readlineSync.question("Enter your PostgreSQL port (default: 5432): ") || "5432";
-    const database = readlineSync.question("Enter your PostgreSQL database name (default: ssh): ") || "ssh";
+    const host = readlineSync.question("Enter your PostgreSQL host (default: localhost): ", {
+        defaultInput: "localhost",
+    });
+    const port = readlineSync.question("Enter your PostgreSQL port (default: 5432): ", {
+        defaultInput: "5432",
+    });
+    const database = readlineSync.question("Enter your PostgreSQL database name (default: ssh): ", {
+        defaultInput: "ssh",
+    });
 
     const envContent = `
 DB_USER=${user.trim()}
 DB_PASSWORD=${password.trim()}
 DB_HOST=${host.trim()}
-DB_PORT=${dbPort.trim()}
+DB_PORT=${port.trim()}
 DB_NAME=${database.trim()}
 `.trim();
 
@@ -31,7 +37,8 @@ DB_NAME=${database.trim()}
     console.log(`.env file created at ${envFilePath}`);
 }
 
-// Function to load .env file or recreate if credentials are invalid
+
+// Function to load or recreate .env file
 async function loadOrRecreateEnv() {
     try {
         if (!fs.existsSync(envFilePath)) {
@@ -41,6 +48,7 @@ async function loadOrRecreateEnv() {
             console.log(".env file already exists. Using existing configuration...");
         }
 
+        // Reload environment variables
         dotenv.config();
 
         // Debug loaded variables
@@ -61,6 +69,14 @@ async function loadOrRecreateEnv() {
                 fs.unlinkSync(envFilePath); // Delete the incorrect .env file
                 console.log(".env file deleted. Please re-enter your credentials.");
             }
+
+            // Clear cached environment variables
+            delete process.env.DB_USER;
+            delete process.env.DB_PASSWORD;
+            delete process.env.DB_HOST;
+            delete process.env.DB_PORT;
+            delete process.env.DB_NAME;
+
             await envSetup(); // Prompt for new credentials
             await loadOrRecreateEnv(); // Retry loading
         } else {
